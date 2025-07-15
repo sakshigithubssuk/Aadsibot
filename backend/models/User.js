@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
   telegramId: {
     type: String,     // Telegram chat IDs are numbers, but storing as String is safer.
     default: null,    // Default to null, meaning the account is not linked yet.
-    unique: true,     // One Telegram account can only be linked to one web user.
+      // One Telegram account can only be linked to one web user.
     sparse: true,     // CRITICAL: This allows many users to have a `null` value
                       // without violating the `unique` constraint.
   },
