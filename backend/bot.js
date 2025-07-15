@@ -1,48 +1,29 @@
-// 1. LOAD ENVIRONMENT VARIABLES
-const dotenv = require('dotenv');
-dotenv.config();
-
-// 2. IMPORT LIBRARIES
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 const mongoose = require('mongoose');
 const User = require('./models/User');
 const Activity = require('./models/Activity');
 
-// 3. INITIALIZE VARIABLES
 const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
 const geminiApiKey = process.env.GEMINI_API_KEY;
-const mongoURI = process.env.MONGO_URI;
-const isProd = process.env.NODE_ENV === 'production'; // 👈 Detect production
 
-// 4. VALIDATE THAT VARIABLES LOADED CORRECTLY
-if (!telegramBotToken || !mongoURI) {
-  console.error('FATAL ERROR: TELEGRAM_BOT_TOKEN or MONGO_URI is not defined in your .env file.');
+if (!telegramBotToken) {
+  console.error('❌ TELEGRAM_BOT_TOKEN missing in .env');
   process.exit(1);
 }
 
-// 5. CONNECT TO MONGODB
-mongoose.connect(mongoURI)
-  .then(() => console.log('✅ Telegram Bot: Connected to MongoDB.'))
-  .catch(err => {
-    console.error('❌ MongoDB connection error:', err);
-    process.exit(1);
-  });
-
-// 6. INITIALIZE TELEGRAM BOT
 let bot;
 
-if (isProd) {
-  console.log('🌐 Running in PRODUCTION mode with WEBHOOK.');
-  const webhookUrl = 'https://aadsibot.onrender.com/telegram-webhook'; 
-  bot = new TelegramBot(telegramBotToken, { webHook: { port: process.env.PORT || 3000 } });
-  bot.setWebHook(webhookUrl);
+// Production = Webhook | Dev = Polling
+if (process.env.NODE_ENV === 'production') {
+  console.log('🌐 Telegram Bot: Running in PRODUCTION mode with WEBHOOK.');
+  bot = new TelegramBot(telegramBotToken);
 } else {
-  console.log('🖥️ Running in DEVELOPMENT mode with POLLING.');
+  console.log('🖥️ Telegram Bot: Running in DEVELOPMENT mode with POLLING.');
   bot = new TelegramBot(telegramBotToken, { polling: true });
 }
 
-// 7. MESSAGE HANDLERS
+// Message Handlers
 bot.onText(/\/start (.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   const userId = match[1];
@@ -53,7 +34,7 @@ bot.onText(/\/start (.+)/, async (msg, match) => {
     }
     const user = await User.findByIdAndUpdate(userId, { telegramId: chatId }, { new: true });
     if (!user) {
-      await bot.sendMessage(chatId, '❌ User account not found.');
+      await bot.sendMessage(chatId, '❌ User not found.');
       return;
     }
     await bot.sendMessage(chatId, '✅ Telegram account linked!');
@@ -97,8 +78,8 @@ bot.on('message', async (msg) => {
     });
 
   } catch (err) {
-    console.error('Error processing message:', err.response ? err.response.data : err.message);
+    console.error('Bot message error:', err.response ? err.response.data : err.message);
   }
 });
 
-console.log('🚀 Telegram Bot server running...');
+module.exports = bot; // 👈 Export bot instance
