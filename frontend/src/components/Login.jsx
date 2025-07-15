@@ -20,11 +20,11 @@ const Login = () => {
     try {
       // 1. The request body should ONLY contain email and password,
       //    matching your backend's loginUser controller.
-      const res = await axios.post('https://aadsibot.onrender.com/api/auth/login
-', {
-        email,
-        password,
-      });
+   const res = await axios.post('https://aadsibot.onrender.com/api/auth/login', {
+  email,
+  password,
+});
+
 
       // 2. THE CRITICAL FIX:
       //    Call login() with the entire response data object and the token from it.
