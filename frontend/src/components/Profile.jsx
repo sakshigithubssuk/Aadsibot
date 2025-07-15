@@ -17,7 +17,7 @@ const Profile = () => {
       // We need the token to make an authenticated request
       if (token) {
         try {
-          const res = await axios.get('http://localhost:5000/api/auth/profile', {
+          const res = await axios.get('https://aadsibot.onrender.com/api/auth/profile', {
             headers: { Authorization: `Bearer ${token}` }
           });
           // Update the entire app's user state with the freshest data from the DB
