@@ -8,7 +8,7 @@ const paymentRoutes = require('./routes/paymentRoutes.js') ;
 const userRoutes = require('./routes/userRoutes.js'); // 👈 1. IMPORT THE NEW USER ROUTE
 const activityRoutes = require('./routes/activityRoutes.js'); 
 const cors = require('cors');
-
+require('./bot');
 
 
 const app = express();
