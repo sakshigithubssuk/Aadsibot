@@ -14,7 +14,7 @@ const ActivityHistory = () => {
     const fetchHistory = async () => {
       if (!token) return;
       try {
-        const { data } = await axios.get('http://localhost:5000/api/activity/history', {
+        const { data } = await axios.get('https://aadsibot.onrender.com/api/activity/history', {
           headers: { Authorization: `Bearer ${token}` },
         });
         setActivities(data);
