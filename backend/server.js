@@ -55,7 +55,37 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/activity', activityRoutes);
+// Paste this entire block into server.js
 
+// =================================================================
+// TEMPORARY DEBUG ROUTE: To inspect the database indexes live.
+// =================================================================
+app.get('/api/debug/db-indexes', async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(500).json({
+      message: 'Not connected to MongoDB. Cannot check indexes.',
+      connectionState: mongoose.connection.readyState,
+    });
+  }
+  try {
+    console.log('--- RUNNING DEBUG: Checking database indexes ---');
+    const indexes = await mongoose.connection.db.collection('users').getIndexes();
+    console.log('--- DEBUG: Indexes retrieved ---', indexes);
+
+    res.status(200).json({
+      message: 'Live index information from the connected database.',
+      database_host: mongoose.connection.host,
+      database_name: mongoose.connection.name,
+      indexes: indexes,
+    });
+  } catch (error) {
+    console.error('--- DEBUG: Error fetching indexes ---', error);
+    res.status(500).json({ message: 'Error fetching indexes.', error: error.message });
+  }
+});
+// =================================================================
+// END OF DEBUG ROUTE
+// =================================================================
 // 7. CONNECT TO MONGODB
 // In server.js (THE FINAL VERSION)
 mongoose.connect(process.env.MONGO_URI, {
