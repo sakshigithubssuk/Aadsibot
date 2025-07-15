@@ -28,6 +28,7 @@ const Register = () => {
 
       // 8. If the API call is successful, the backend will return the user data and token
       // Use the login function from your context to save them
+      console.log("res data",res.data);
       if (res.data) {
         login(res.data, res.data.token);
         navigate('/'); // 9. Navigate to the profile page, not the login page
