@@ -75,6 +75,8 @@ bot.onText(/\/start (.+)/, async (msg, match) => {
   }
 });
 
+// In bot.js
+
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const messageText = msg.text;
@@ -83,59 +85,83 @@ bot.on('message', async (msg) => {
   if (messageText && messageText.startsWith('/')) return;
   if (msg.from.is_bot) return;
 
-  console.log(`--- [${new Date().toISOString()}] Received message from chat ID: ${chatId} ---`);
+  console.log(`--- [GEMINI FLOW] Received message from chat ID: ${chatId} ---`);
 
   try {
-    console.log('Querying database for linked user...');
+    console.log('[GEMINI FLOW] 1. Looking for user in database...');
     const appUser = await User.findOne({ telegramId: chatId.toString() });
 
     if (!appUser) {
-      console.log('[INFO] Message received from unlinked Telegram account. Ignoring.');
+      console.log('[GEMINI FLOW] 2a. [FAIL] User not found in DB. Ignoring message.');
       return;
     }
+    console.log(`[GEMINI FLOW] 2b. [OK] User "${appUser.username}" found.`);
 
     if (!appUser.isAiBotActive) {
-      console.log(`[INFO] AI Bot is not active for user ${appUser.username}. Ignoring.`);
+      console.log(`[GEMINI FLOW] 3a. [FAIL] AI Bot is not active for user. Ignoring.`);
       return;
     }
+    console.log(`[GEMINI FLOW] 3b. [OK] Bot is active for user.`);
 
     if (appUser.credits <= 0) {
-      console.log(`[INFO] User ${appUser.username} has no credits left.`);
+      console.log(`[GEMINI FLOW] 4a. [FAIL] User has no credits.`);
       await bot.sendMessage(chatId, "⚠️ You have no credits left to use the AI bot.");
       return;
     }
-
-    console.log(`[OK] User ${appUser.username} is valid with ${appUser.credits} credits. Sending "typing" action.`);
+    console.log(`[GEMINI FLOW] 4b. [OK] User has ${appUser.credits} credits.`);
+    
     await bot.sendChatAction(chatId, 'typing');
 
-    console.log('Calling Google Gemini API...');
+    // --- The Critical Gemini API Call ---
+    console.log(`[GEMINI FLOW] 5. Preparing to call Google Gemini API.`);
+    // Log the last 4 characters of the key to confirm it's loaded without exposing it.
+    console.log(`   - Using API Key ending in: ...${geminiApiKey.slice(-4)}`);
+
     const geminiResponse = await axios.post(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`,
       { contents: [{ parts: [{ text: messageText }] }] }
     );
-    const aiReply = geminiResponse.data.candidates[0].content.parts[0].text;
-    console.log('Successfully received reply from Gemini. Sending message to user...');
 
-    await bot.sendMessage(chatId, aiReply);
-    console.log('Message sent. Updating user credits and activity log...');
+    console.log('[GEMINI FLOW] 6. [SUCCESS] Received a response from Gemini.');
+    // Log the entire response data to see exactly what Google sent back.
+    console.log('   - Full Gemini Response Data:', JSON.stringify(geminiResponse.data, null, 2));
 
-    appUser.credits -= 1;
-    await appUser.save();
-    await Activity.create({
-      user: appUser._id,
-      activityType: 'ai_reply_sent',
-      description: 'AI reply sent via Telegram Bot.',
-      creditChange: -1,
-    });
-    console.log('[SUCCESS] Credits and activity logged.');
-    console.log('--- End of message processing ---');
+    // Defensive parsing of the response
+    if (geminiResponse.data && geminiResponse.data.candidates && geminiResponse.data.candidates.length > 0 && geminiResponse.data.candidates[0].content && geminiResponse.data.candidates[0].content.parts && geminiResponse.data.candidates[0].content.parts.length > 0) {
+      const aiReply = geminiResponse.data.candidates[0].content.parts[0].text;
+      console.log('[GEMINI FLOW] 7. [OK] Successfully parsed AI reply.');
+      await bot.sendMessage(chatId, aiReply);
+      console.log('[GEMINI FLOW] 8. [OK] Sent message to user. Updating credits...');
+      
+      appUser.credits -= 1;
+      await appUser.save();
+      await Activity.create({
+        user: appUser._id,
+        activityType: 'ai_reply_sent',
+        description: 'AI reply sent via Telegram Bot.',
+        creditChange: -1,
+      });
+      console.log('[GEMINI FLOW] 9. [COMPLETE] Process finished successfully.');
+
+    } else {
+      console.log('[GEMINI FLOW] 7. [FAIL] Gemini response was valid, but did not contain the expected text. It might be a safety block or empty reply.');
+      await bot.sendMessage(chatId, '🤖 I received a response, but it was empty. Please try rephrasing your message.');
+    }
 
   } catch (err) {
-    console.error('--- FATAL ERROR IN MESSAGE HANDLER ---');
-    console.error(err.isAxiosError ? err.toJSON() : err); // Log full Axios error or standard error
-    await bot.sendMessage(chatId, '🤖 Sorry, I encountered an error and could not process your message.').catch(e => console.error("Additionally failed to send error message to user:", e));
+    console.error('--- [GEMINI FLOW] FATAL ERROR ---');
+    if (err.isAxiosError) {
+      // Axios errors are network-related and have rich details
+      console.error('Axios Error! The request to Gemini failed.');
+      console.error('Error Code:', err.code);
+      console.error('Response Status:', err.response ? err.response.status : 'No response status');
+      console.error('Response Data:', err.response ? JSON.stringify(err.response.data, null, 2) : 'No response data');
+    } else {
+      // Other errors (e.g., parsing, logic)
+      console.error('A non-network error occurred:', err);
+    }
+    await bot.sendMessage(chatId, '🤖 Sorry, a critical error occurred while trying to process your request. The developers have been notified.').catch(e => console.error("Additionally failed to send error message to user:", e));
   }
 });
-
 // 8. EXPORT THE BOT INSTANCE
 module.exports = { bot };
