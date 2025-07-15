@@ -27,7 +27,7 @@ const Chat = () => {
     setLoading(true);
     try {
       const { data } = await axios.post(
-        'http://localhost:5000/api/user/toggle-bot',
+        'https://aadsibot.onrender.com/api/user/toggle-bot',
         {}, // The body is empty, the action is defined by the route itself
         { headers: { Authorization: `Bearer ${token}` } }
       );
