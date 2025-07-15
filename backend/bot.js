@@ -1,85 +1,56 @@
-const TelegramBot = require('node-telegram-bot-api');
-const axios = require('axios');
+// 1. LOAD ENVIRONMENT VARIABLES
+const dotenv = require('dotenv');
+dotenv.config();
+
+// 2. IMPORT LIBRARIES
+const express = require('express');
 const mongoose = require('mongoose');
-const User = require('./models/User');
-const Activity = require('./models/Activity');
+const cors = require('cors');
+const authRoutes = require('./routes/authRoutes.js');
+const feedbackRoutes = require('./routes/feedbackRoutes.js');
+const paymentRoutes = require('./routes/paymentRoutes.js');
+const userRoutes = require('./routes/userRoutes.js');
+const activityRoutes = require('./routes/activityRoutes.js');
+const { bot } = require('./bot'); // 👈 1. IMPORT THE BOT INSTANCE
 
-const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
-const geminiApiKey = process.env.GEMINI_API_KEY;
+// 3. INITIALIZE EXPRESS APP
+const app = express();
+app.use(express.json());
 
-if (!telegramBotToken) {
-  console.error('❌ TELEGRAM_BOT_TOKEN missing in .env');
+// 4. CONFIGURE CORS
+app.use(cors({
+  origin: 'https://aadsibot.vercel.app',
+  credentials: true
+}));
+
+// 5. SETUP TELEGRAM WEBHOOK ROUTE
+//    The bot will receive updates from Telegram at this endpoint.
+app.post(`/telegram-webhook`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200); // Acknowledge receipt of the update
+});
+
+// 6. SETUP API ROUTES
+app.use('/api/auth', authRoutes);
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/payment', paymentRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/activity', activityRoutes);
+
+// 7. CONNECT TO MONGODB
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log('✅ MongoDB Connected'))
+.catch((err) => {
+  console.error('❌ MongoDB Error:', err);
   process.exit(1);
-}
-
-let bot;
-
-// Production = Webhook | Dev = Polling
-if (process.env.NODE_ENV === 'production') {
-  console.log('🌐 Telegram Bot: Running in PRODUCTION mode with WEBHOOK.');
-  bot = new TelegramBot(telegramBotToken);
-} else {
-  console.log('🖥️ Telegram Bot: Running in DEVELOPMENT mode with POLLING.');
-  bot = new TelegramBot(telegramBotToken, { polling: true });
-}
-
-// Message Handlers
-bot.onText(/\/start (.+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  const userId = match[1];
-  try {
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      await bot.sendMessage(chatId, '❌ Invalid link code.');
-      return;
-    }
-    const user = await User.findByIdAndUpdate(userId, { telegramId: chatId }, { new: true });
-    if (!user) {
-      await bot.sendMessage(chatId, '❌ User not found.');
-      return;
-    }
-    await bot.sendMessage(chatId, '✅ Telegram account linked!');
-  } catch (err) {
-    console.error('Error linking account:', err);
-    await bot.sendMessage(chatId, '❌ Linking failed.');
-  }
 });
 
-bot.on('message', async (msg) => {
-  const chatId = msg.chat.id;
-  const messageText = msg.text;
-
-  if (messageText && messageText.startsWith('/')) return;
-  if (msg.from.is_bot) return;
-
-  try {
-    const appUser = await User.findOne({ telegramId: chatId });
-    if (!appUser || !appUser.isAiBotActive) return;
-    if (appUser.credits <= 0) {
-      await bot.sendMessage(chatId, "⚠️ No credits left.");
-      return;
-    }
-
-    await bot.sendChatAction(chatId, 'typing');
-    const geminiResponse = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`,
-      { contents: [{ parts: [{ text: messageText }] }] }
-    );
-    const aiReply = geminiResponse.data.candidates[0].content.parts[0].text;
-    await bot.sendMessage(chatId, aiReply);
-
-    appUser.credits -= 1;
-    await appUser.save();
-
-    await Activity.create({
-      user: appUser._id,
-      activityType: 'ai_reply_sent',
-      description: 'AI reply sent via Telegram Bot.',
-      creditChange: -1,
-    });
-
-  } catch (err) {
-    console.error('Bot message error:', err.response ? err.response.data : err.message);
-  }
+// 8. START THE SERVER
+const PORT = process.env.PORT || 5050;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log('🚀 Telegram Bot server running...');
 });
-
-module.exports = bot; // 👈 Export bot instance
