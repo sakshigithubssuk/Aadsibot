@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Register from './components/Register'
 import Chat from './components/Chat'
-import Homepage from './components/HomePage.jsx'
+import Homepage from './components/Homepage.jsx'
 import Login from './components/Login';
 import Payment from './components/Payment';
 import Profile from './components/Profile';
