@@ -57,9 +57,11 @@ app.use('/api/user', userRoutes);
 app.use('/api/activity', activityRoutes);
 
 // 7. CONNECT TO MONGODB
+// In server.js (THE FINAL VERSION)
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
+  autoIndex: false, 
 })
 .then(() => console.log('✅ MongoDB Connected'))
 .catch((err) => {
