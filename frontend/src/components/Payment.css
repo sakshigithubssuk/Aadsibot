@@ -1,0 +1,87 @@
+body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+  background: #ffffff; /* White background */
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.payment-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.payment-card {
+  background: #f3e8ff; /* Light lavender background */
+  border-radius: 20px;
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  color: #333;
+}
+
+.payment-title {
+  font-size: 2.2rem;
+  margin-bottom: 10px;
+  color: #6b21a8;
+}
+
+.payment-subtitle {
+  font-size: 1rem;
+  margin-bottom: 25px;
+  color: #5b5b5b;
+}
+
+.payment-options {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.payment-button {
+  padding: 12px;
+  background: #facc15; /* Yellow button */
+  border: none;
+  border-radius: 10px;
+  color: #333;
+  font-weight: 600;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.payment-button:hover {
+  background: #fbbf24; /* Darker yellow on hover */
+  transform: translateY(-2px);
+}
+
+.payment-status {
+  margin-top: 15px;
+  font-size: 1rem;
+  color: #10b981; /* Green text for status */
+  font-weight: 600;
+}
+
+.back-button {
+  display: block;
+  margin-top: 25px;
+  padding: 10px;
+  background: #6366f1; /* Indigo button */
+  color: #fff;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.back-button:hover {
+  background: #4f46e5; /* Darker indigo */
+  transform: translateY(-2px);
+}

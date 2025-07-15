@@ -1,0 +1,268 @@
+/* Reset and Base Styles */
+body, html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden;
+  font-family: 'Poppins', sans-serif;
+  background: #ffffff;
+}
+
+/* Container spans full width */
+.homepage-container {
+  width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(135deg, #f3e8ff, #ffffff);
+}
+
+/* Hero Section */
+.hero-section {
+  text-align: center;
+  margin-top: 50px;
+  margin-bottom: 40px;
+  width: 100%;
+}
+
+.hero-title {
+  font-size: 3rem;
+  color: #6b21a8;
+  margin-bottom: 10px;
+}
+
+.hero-slogan {
+  font-size: 1.3rem;
+  color: #555;
+  margin-bottom: 30px;
+  height: 1.6rem;
+}
+
+.animated-text {
+  border-right: 0.15em solid #6b21a8;
+  white-space: nowrap;
+  overflow: hidden;
+  animation: typing 4s steps(40, end), blink-caret 0.75s step-end infinite;
+}
+
+@keyframes typing {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes blink-caret {
+  from, to {
+    border-color: transparent;
+  }
+  50% {
+    border-color: #6b21a8;
+  }
+}
+
+/* Buttons */
+.hero-buttons {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.get-started-btn {
+  background: #6366f1;
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.get-started-btn:hover {
+  background: #4f46e5;
+  transform: translateY(-2px);
+}
+
+.chat-history-btn {
+  background: #facc15;
+  color: #333;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  text-decoration: none;
+  display: inline-block;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.chat-history-btn:hover {
+  background: #fbbf24;
+  transform: translateY(-2px);
+}
+
+/* Feedback Section (Container in center) */
+.feedback-section {
+  background: #f3e8ff;
+  padding: 30px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  margin: 40px auto;
+  text-align: center;
+}
+
+.feedback-title {
+  font-size: 1.8rem;
+  color: #6b21a8;
+  margin-bottom: 15px;
+}
+
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.feedback-textarea {
+  padding: 12px;
+  border: 1px solid #d1c4e9;
+  border-radius: 10px;
+  resize: vertical;
+  min-height: 120px;
+  font-size: 1rem;
+}
+
+.feedback-submit-btn {
+  background: #6b21a8;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.feedback-submit-btn:hover {
+  background: #5b1ea3;
+  transform: translateY(-2px);
+}
+
+/* Circular Credit Display */
+.credit-circle {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  background-color: #bc93de;
+  color: white;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-size: 0.9rem;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  z-index: 1000;
+  text-align: center;
+  padding: 8px;
+  line-height: 1.2rem;
+}
+
+/* Logout Button */
+.top-right-logout {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1001;
+}
+
+.logout-btn {
+  background-color: #ef4444;
+  color: white;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.logout-btn:hover {
+  background-color: #dc2626;
+  transform: translateY(-2px);
+}
+.top-right-profile {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  position: absolute;
+}
+
+.profile-circle {
+  width: 40px;
+  height: 40px;
+  background-color: #bc7eef;;
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.profile-dropdown {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.profile-dropdown button {
+  width: 100%;
+  padding: 10px 20px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-dropdown button:hover {
+  background-color: #f0f0f0;
+}
+/* Homepage.css */
+
+/* ... (your other styles) ... */
+
+.feedback-success {
+  color: #28a745; /* Green */
+  background-color: #e9f7ef;
+  border: 1px solid #a3e9b4;
+  padding: 10px;
+  border-radius: 6px;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.feedback-error {
+  color: #dc3545; /* Red */
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  padding: 10px;
+  border-radius: 6px;
+  margin-top: 10px;
+  text-align: center;
+}

@@ -1,0 +1,93 @@
+body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+  background: #ffffff; /* Pure white background */
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.register-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.register-card {
+  background: #f3e8ff; /* Very light purple (lavender) */
+  border-radius: 20px;
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  color: #333;
+}
+
+.register-title {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+  color: #6b21a8; /* Darker purple title */
+}
+
+.register-subtitle {
+  font-size: 1rem;
+  margin-bottom: 30px;
+  color: #5b5b5b;
+}
+
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.register-input {
+  padding: 12px 15px;
+  border: 1px solid #d1c4e9;
+  border-radius: 10px;
+  outline: none;
+  background: #ffffff;
+  color: #333;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+}
+
+.register-input:focus {
+  border-color: #a855f7; /* Highlight border on focus */
+}
+
+.register-button {
+  padding: 12px;
+  background: #a855f7; /* Purple button */
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.register-button:hover {
+  background: #9333ea; /* Darker purple on hover */
+  transform: translateY(-2px);
+}
+
+.register-footer {
+  margin-top: 20px;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.register-link {
+  color: #7c3aed;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.register-link:hover {
+  text-decoration: underline;
+}
