@@ -19,7 +19,7 @@ const Register = () => {
    
     try {
       // 7. Make the API call to your backend's register endpoint
-      const res = await axios.post('http://localhost:5000/api/auth/register', {
+      const res = await axios.post('https://aadsibot.onrender.com/api/auth/register', {
         name,
         email,
         password,
