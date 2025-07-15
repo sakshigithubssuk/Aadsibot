@@ -46,7 +46,7 @@ const Homepage = () => {
     try {
       // 4. Make an authenticated POST request
       await axios.post(
-        'http://localhost:5000/api/feedback/submit',
+       'https://aadsibot.onrender.com/api/feedback/submit',
         { message: feedbackMessage }, // This is the request body
         {
           headers: {
