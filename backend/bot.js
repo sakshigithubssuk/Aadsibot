@@ -118,7 +118,7 @@ bot.on('message', async (msg) => {
     console.log(`   - Using API Key ending in: ...${geminiApiKey.slice(-4)}`);
 
     const geminiResponse = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`,
       { contents: [{ parts: [{ text: messageText }] }] }
     );
 
