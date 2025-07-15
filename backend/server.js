@@ -14,13 +14,10 @@ require('./bot');
 const app = express();
 app.use(express.json());
 // Allow frontend (React) to talk to backend (Node)
-const allowedOrigins = [
-  'http://localhost:5173',                  // Local React dev server
-  'https://Aadsibot-frontend.vercel.app'    // Your Vercel frontend URL
-];
+
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin:'https://aadsibot.vercel.app'
   credentials: true
 }));
 // Routes
