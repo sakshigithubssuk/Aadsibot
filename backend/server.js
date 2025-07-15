@@ -4,17 +4,14 @@ const dotenv = require('dotenv');
 dotenv.config();
 const authRoutes = require('./routes/authRoutes.js');
 const feedbackRoutes = require('./routes/feedbackRoutes.js');
-const paymentRoutes = require('./routes/paymentRoutes.js') ;
-const userRoutes = require('./routes/userRoutes.js'); // 👈 1. IMPORT THE NEW USER ROUTE
-const activityRoutes = require('./routes/activityRoutes.js'); 
+const paymentRoutes = require('./routes/paymentRoutes.js');
+const userRoutes = require('./routes/userRoutes.js');
+const activityRoutes = require('./routes/activityRoutes.js');
 const cors = require('cors');
-require('./bot');
-
+const bot = require('./bot'); // 👈 Import the Telegram bot instance
 
 const app = express();
 app.use(express.json());
-// Allow frontend (React) to talk to backend (Node)
-
 
 app.use(cors({
   origin: 'https://aadsibot.vercel.app',
@@ -23,11 +20,24 @@ app.use(cors({
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/feedback', feedbackRoutes); 
-// server.js
-app.use('/api/payment',paymentRoutes);
-app.use('/api/user', userRoutes); // 👈 2. USE THE ROUTES WITH A BASE PATH
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/payment', paymentRoutes);
+app.use('/api/user', userRoutes);
 app.use('/api/activity', activityRoutes);
+
+// Telegram webhook
+if (process.env.NODE_ENV === 'production') {
+  app.post('/telegram-webhook', (req, res) => {
+    bot.processUpdate(req.body);
+    res.sendStatus(200);
+  });
+}
+
+// Root route for testing
+app.get('/', (req, res) => {
+  res.send('✅ Backend API & Telegram Bot running!');
+});
+
 // DB Connection
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
@@ -37,4 +47,6 @@ mongoose.connect(process.env.MONGO_URI, {
 .catch((err) => console.error('❌ MongoDB Error:', err));
 
 const PORT = process.env.PORT || 5050;
-app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
