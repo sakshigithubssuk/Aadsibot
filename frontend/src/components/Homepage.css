@@ -266,3 +266,17 @@ body, html {
   margin-top: 10px;
   text-align: center;
 }
+/* ... your existing styles ... */
+
+/* Style for the credit circle when credits are zero */
+.credit-circle.zero-credits {
+  background-color: #ff4d4d; /* A noticeable red color */
+  color: white;
+  border: 2px solid #b30000;
+}
+
+/* Style for the upgrade button to make it stand out */
+.upgrade-btn {
+  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+  color: white;
+}
