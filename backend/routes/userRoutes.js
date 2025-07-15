@@ -7,7 +7,7 @@ const router = express.Router();
 const { toggleAiBot } = require('../controllers/userController');
 
 // 2. Import your existing authentication middleware.
-const protect = require('../middleware/authMiddleware');
+const protect = require('../middleware/authmiddleware');
 
 // 3. Define the route.
 //    - It listens for POST requests to '/toggle-bot'.
