@@ -17,7 +17,7 @@ const Payment = () => {
     try {
       // Step 1: Create an order on your backend
       const { data: orderData } = await axios.post(
-        'http://localhost:5000/api/payment/create-order',
+        'https://aadsibot.onrender.com/api/payment/create-order',
         { amount, plan },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -36,7 +36,7 @@ const Payment = () => {
           try {
             // Step 4: Verify the payment on your backend
             const { data: verificationData } = await axios.post(
-              'http://localhost:5000/api/payment/verify',
+              'https://aadsibot.onrender.com/api/payment/verify',
               {
                 ...response, // sends razorpay_payment_id, etc.
                 plan,
@@ -76,27 +76,27 @@ const Payment = () => {
       setLoading(false);
     }
   };
- const handleManualCreditAdd = async (plan) => {
-    setLoading(true);
-    setStatus(`⏳ Manually adding credits for ${plan}...`);
-    try {
-      const { data } = await axios.post(
-        'http://localhost:5000/api/payment/manual-test-add-credits',
-        { plan }, // Send the plan name
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+ // const handleManualCreditAdd = async (plan) => {
+ //    setLoading(true);
+ //    setStatus(`⏳ Manually adding credits for ${plan}...`);
+ //    try {
+ //      const { data } = await axios.post(
+ //        'https://aadsibot.onrender.com/api/payment/manual-test-add-credits',
+ //        { plan }, // Send the plan name
+ //        { headers: { Authorization: `Bearer ${token}` } }
+ //      );
 
-      // Update the UI instantly with the new user data from the backend
-      updateUser(data.user);
-      setStatus(`✅ ${data.message}`);
+ //      // Update the UI instantly with the new user data from the backend
+ //      updateUser(data.user);
+ //      setStatus(`✅ ${data.message}`);
 
-    } catch (error) {
-      console.error(error);
-      setStatus(`❌ Manual add failed: ${error.response?.data?.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+ //    } catch (error) {
+ //      console.error(error);
+ //      setStatus(`❌ Manual add failed: ${error.response?.data?.message}`);
+ //    } finally {
+ //      setLoading(false);
+ //    }
+ //  };
 
   return (
     <div className="payment-container">
