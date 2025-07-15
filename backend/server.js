@@ -17,9 +17,10 @@ app.use(express.json());
 
 
 app.use(cors({
-  origin:'https://aadsibot.vercel.app'
+  origin: 'https://aadsibot.vercel.app',
   credentials: true
 }));
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/feedback', feedbackRoutes); 
