@@ -85,20 +85,6 @@ GEMINI_API_KEY="your_gemini_api_key"
 
 Start the server:
 npm start
-## Else use my Environment variables 
-PORT=5000
-MONGO_URI="mongodb+srv://sakshissuk35:ybGXWqrEqEeyT7k9@cluster0.smb9exc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-
-JWT_SECRET="aadsi_secret"
-
-TELEGRAM_BOT_TOKEN=8069128656:AAHskfRYyN7FZb4FSxWLxCUOuxI2f0k0kOk
-
-RAZORPAY_KEY_ID="rzp_test_sF3coOlKxKliQD"
-
-RAZORPAY_KEY_SECRET="ZdPn0MIyb1fylGV3f1oegMM1"
-
-GEMINI_API_KEY="AIzaSyDME20U5kA5MPf2CTSjRJeUptmeCxa00Lg"
-
 
 #####
 Local Development Configuration
