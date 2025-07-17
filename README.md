@@ -50,18 +50,23 @@ Navigate to the frontend directory:
 ### ------------------------------------------------------------------
 cd frontend
 Install NPM packages:
+
 npm install
+
 npm run dev
 ### ------------------------------------------------------------------------
 Backend Setup
 Navigate to the backend directory:
 Install NPM packages:
+
 npm install
 Create a .env file in the backend directory and add the following environment variables:
 ## if you want to create your own environment variables::-----
 ### how get TELEGRAM_BOT_TOKEN:
 search @Bot father on telegram which has blue tick
-send a text /start
+send a text
+/start
+
 /newbot
 now you get your BOT-token in text
 ## how to get geminiAPi key
