@@ -72,7 +72,7 @@ const Chat = () => {
           <p>This is a one-time setup to connect your account to our service.</p>
           <ol>
             <li>Tap: Start</li>
-            <li>Open Telegram and search for our bot: <strong>@Aadsibot</strong>.</li>
+            <li>Open Telegram and search for our bot: <strong> @Aadsibot </strong>.</li>
             <li>Send the bot this exact, unique message:</li>
           </ol>
           <div className="code-box">{linkCode}</div>
