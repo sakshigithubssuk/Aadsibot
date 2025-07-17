@@ -110,10 +110,10 @@ Frontend Deployment (Vercel)
 Go to Vercel and create a new project.
 
 Import your GitHub repository.
-## DONE 😎😎😎😎
 
 Vercel will typically auto-detect the framework and configure the build settings.
 
 Add any necessary environment variables for the frontend.
 
 Deploy the project.
+## DONE 😎😎😎😎
