@@ -99,9 +99,8 @@ GEMINI_API_KEY="AIzaSyDME20U5kA5MPf2CTSjRJeUptmeCxa00Lg"
 Local Development Configuration
 To run the application locally, you will need to update the API endpoints in the frontend code to point to your local backend server (http://localhost:5050) and ensure the frontend is configured to run on its designated port (e.g., http://localhost:5173).
 
-## demo
 
-Deployment
+## Deployment
 Backend Deployment (Render)
 
 Go to Render and create a new Web Service.
