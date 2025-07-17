@@ -1,8 +1,9 @@
-### Aadsibot - Your Intelligent Telegram Chat Companion
+### Aadsibot - Your Intelligent Telegram Chat Companion😎😎
 
 Aadsibot is a powerful and interactive Telegram chatbot designed to provide a seamless and engaging user experience. This project integrates a secure user authentication system, a user-friendly interface for interacting with the bot, and a credit-based usage model with integrated payment solutions.
-
-### Key Features---------------------------------------------------------------------------------------------------------------
+## DEMO:---
+images uploaded in github 😊
+### Key Features😎😎😎😎 ---------------------------------------------------------------------------------------------------------------
 
 Secure User Authentication: A robust registration and login system ensures that user data and interactions remain private and secure.
 
@@ -18,9 +19,9 @@ Comprehensive User Profile: The profile section provides users with an overview 
 
 Integrated Payment System: Users can easily replenish their credits through a secure payment gateway. We offer flexible plans to suit your needs:
 
-1-Month Plan: Add 30 credits to your account.
+1-Month Plan💸: Add 30 credits to your account.
 
-3-Month Plan: Add 90 credits to your account.
+3-Month Plan💸 : Add 90 credits to your account.
 
 Feedback Mechanism: A dedicated feedback button allows users to share their suggestions and report any issues, helping us to continuously improve the Aadsibot experience.
 
@@ -68,7 +69,7 @@ send a text
 /start
 
 /newbot
-now you get your BOT-token in text
+now you get your BOT-token in text👍
 ## how to get geminiAPi key
 search in google gemini2.5pro then click on GetApikey click on create api key now you get copy it paste in .env done
 ### how to get razorpay_id
@@ -91,7 +92,7 @@ Local Development Configuration
 To run the application locally, you will need to update the API endpoints in the frontend code to point to your local backend server (http://localhost:5050) and ensure the frontend is configured to run on its designated port (e.g., http://localhost:5173).
 
 
-## Deployment
+## Deployment😊😊😊
 Backend Deployment (Render)
 
 Go to Render and create a new Web Service.
@@ -109,6 +110,7 @@ Frontend Deployment (Vercel)
 Go to Vercel and create a new project.
 
 Import your GitHub repository.
+## DONE 😎😎😎😎
 
 Vercel will typically auto-detect the framework and configure the build settings.
 
