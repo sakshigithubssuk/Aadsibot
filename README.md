@@ -12,7 +12,13 @@ Seamless Telegram Integration: Activate your personal bot by obtaining a unique 
 Interactive Chat: Once connected, users can engage in natural and intuitive conversations with the bot.
 
 Credit-Based System: To maintain a fair usage policy, each user is initially granted 10 credits upon registration. Every reply from the bot deducts one credit from the user's balance.
-
+## 👉👉➡️➡️Important features :
+## what makes @Aadsibot different than chatgpt or any ai device ai have no memory but but but wait @Aadsibot have it can remeber your information it can remind you similarly a lot of features that makes it more powerful for knowing all its features and how to use just type in bot after linking your telegram /help:::---
+## user can generate image by text(/imagine eg:tree) it gives you an image of tree
+## user can set a reminder by text(/remind me to eg:to wakeup at 7:00am) it send you a reminder message
+## user can deleter their reminder by using command(/deletereminder id) see id by command (/myreminders)
+## user can save remembrable information by using ommand /remember 
+## Demo screenshot of bot is uploaded in demo_pages 
 Usage History: A detailed usage history allows users to track their total credits spent, along with the date and time of each interaction.
 
 Comprehensive User Profile: The profile section provides users with an overview of their account, including their Telegram linkage status and whether their bot is currently active.
