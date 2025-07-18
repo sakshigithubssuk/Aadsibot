@@ -6,18 +6,22 @@ dotenv.config();
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 const mongoose = require('mongoose');
-const User = require('./models/User'); // Ensure this path is correct
-const Activity = require('./models/Activity'); // Ensure this path is correct
+const cron = require('node-cron');
+const chrono = require('chrono-node');
 
-// 3. INITIALIZE VARIABLES
+// 3. IMPORT DATABASE MODELS
+const User = require('./models/User');
+const Activity = require('./models/Activity');
+const Reminder = require('./models/Reminder');
+
+// 4. INITIALIZE & VALIDATE VARIABLES
 const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const mongoURI = process.env.MONGO_URI;
 const isProd = process.env.NODE_ENV === 'production';
 
-// 4. VALIDATE THAT VARIABLES LOADED CORRECTLY
 if (!telegramBotToken || !mongoURI || !geminiApiKey) {
-    console.error('FATAL ERROR: One or more required environment variables (TELEGRAM_BOT_TOKEN, MONGO_URI, GEMINI_API_KEY) are missing in .env');
+    console.error('FATAL ERROR: One or more required environment variables are missing.');
     process.exit(1);
 }
 
@@ -32,188 +36,270 @@ mongoose.connect(mongoURI)
 // 6. INITIALIZE TELEGRAM BOT
 let bot;
 if (isProd) {
-    console.log('🌐 Running in PRODUCTION mode with WEBHOOK.');
+    console.log('🌐 Running in PRODUCTION mode.');
     bot = new TelegramBot(telegramBotToken);
 } else {
     console.log('🖥️ Running in DEVELOPMENT mode with POLLING.');
     bot = new TelegramBot(telegramBotToken, { polling: true });
 }
 
-// --- 7. COMMAND HANDLERS ---
+// --- 7. HELPERS AND MIDDLEWARE ---
 
-// '/start' command to link a user's account
+const withUser = (commandLogic) => async (msg, match) => {
+    const chatId = msg.chat.id;
+    try {
+        const user = await User.findOne({ telegramId: chatId.toString() });
+        if (!user) return bot.sendMessage(chatId, "Your Telegram account isn't linked. Please use your unique `/start` command first.");
+        await commandLogic(msg, match, user);
+    } catch (error) {
+        console.error(`Error in withUser middleware for command ${match ? match[0] : 'N/A'}:`, error);
+        await bot.sendMessage(chatId, "Sorry, a server error occurred while processing that.");
+    }
+};
+
+const helpMessage = `
+👋 **Welcome to Aadsibot!**
+
+I'm your personal AI assistant. Here's a quick guide to my features:
+
+**Conversation & AI:**
+- Just chat with me! I can answer questions, write text, and more.
+
+**Productivity & Memory:**
+- \`/remind me to <task> at <time>\`: I'll set a reminder for you.
+- \`/myreminders\`: View all your active reminders.
+- \`/deletereminder <ID>\`: Deletes a specific reminder by its ID.
+- \`/remember <keyword> <info>\`: Teach me something about you.
+- \`/myinfo\`: See everything you've taught me.
+- \`/forget <keyword>\`: Make me forget something.
+
+**Help:**
+- \`/help\`: Show this message again.
+`;
+
+// NEW: Helper function to call Gemini with automatic retries
+async function callGeminiWithRetry(prompt, maxRetries = 3) {
+    let attempt = 0;
+    while (attempt < maxRetries) {
+        try {
+            console.log(`[GEMINI] Calling API, attempt ${attempt + 1}...`);
+            const geminiResponse = await axios.post(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`,
+                { contents: [{ parts: [{ text: prompt }] }] }
+            );
+            return geminiResponse; // Success!
+        } catch (error) {
+            // Check for the specific "overloaded" error (503)
+            if (error.isAxiosError && error.response && error.response.status === 503) {
+                attempt++;
+                if (attempt >= maxRetries) {
+                    console.error(`[GEMINI] [FAIL] Model is overloaded. Max retries reached.`);
+                    throw error; // Give up
+                }
+                const delay = Math.pow(2, attempt) * 1000; // Exponential backoff (2s, 4s...)
+                console.warn(`[GEMINI] [RETRY] Model overloaded. Retrying in ${delay / 1000} seconds...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                // It was a different error, so don't retry.
+                throw error;
+            }
+        }
+    }
+}
+
+
+// --- 8. CORE COMMAND HANDLERS ---
+
 bot.onText(/\/start (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const userId = match[1];
-
-    console.log(`--- [/start] Received for user ID: ${userId} ---`);
     try {
-        if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return bot.sendMessage(chatId, '❌ Invalid link code.');
-        }
+        if (!mongoose.Types.ObjectId.isValid(userId)) return bot.sendMessage(chatId, '❌ Invalid link code.');
+        
         const user = await User.findByIdAndUpdate(userId, { telegramId: chatId.toString() }, { new: true });
-        if (!user) {
-            return bot.sendMessage(chatId, '❌ User account not found.');
-        }
-        // CORRECTED from user.username to user.name
+        if (!user) return bot.sendMessage(chatId, '❌ User account not found.');
+        
         console.log(`[SUCCESS] User ${user.name} linked to chat ${chatId}.`);
-        await bot.sendMessage(chatId, `✅ Telegram account linked to ${user.name}!`);
+        await bot.sendMessage(chatId, `✅ Welcome, ${user.name}! Your Telegram account is now linked.`);
+        await bot.sendMessage(chatId, helpMessage, { parse_mode: 'Markdown' }); // Send help on start
     } catch (err) {
         console.error('--- FATAL ERROR IN /start HANDLER ---', err);
         await bot.sendMessage(chatId, '❌ Linking failed due to a server error.');
     }
 });
 
-// --- NEW PERSONALIZATION COMMANDS ---
+bot.onText(/\/help/, (msg) => {
+    bot.sendMessage(msg.chat.id, helpMessage, { parse_mode: 'Markdown' });
+});
 
-// '/remember' command to save information
-bot.onText(/\/remember (\w+) (.+)/, async (msg, match) => {
-    const chatId = msg.chat.id;
+
+// --- 9. MEMORY & REMINDER COMMANDS ---
+
+bot.onText(/\/remember (\w+) (.+)/, withUser(async (msg, match, user) => {
     const tag = match[1].toLowerCase();
     const content = match[2];
+    user.notes = user.notes.filter(note => note.tag !== tag);
+    user.notes.push({ tag, content });
+    await user.save();
+    await bot.sendMessage(msg.chat.id, `✅ Got it. I'll remember that **${tag}** is "${content}".`, { parse_mode: 'Markdown' });
+    console.log(`[MEMORY] User ${user.name} saved note with tag: ${tag}`);
+}));
 
-    try {
-        const user = await User.findOne({ telegramId: chatId.toString() });
-        if (!user) return bot.sendMessage(chatId, "Please link your account with /start first.");
-
-        // Prevents duplicate tags by removing any old note with the same tag
-        user.notes = user.notes.filter(note => note.tag !== tag);
-        user.notes.push({ tag, content });
-        await user.save();
-
-        await bot.sendMessage(chatId, `✅ Got it. I'll remember that **${tag}** is "${content}".`, { parse_mode: 'Markdown' });
-        console.log(`[MEMORY] User ${user.name} saved note with tag: ${tag}`);
-    } catch (error) {
-        console.error("Error in /remember command:", error);
-        await bot.sendMessage(chatId, "Sorry, I had trouble remembering that.");
+bot.onText(/\/myinfo/, withUser(async (msg, match, user) => {
+    if (!user.notes || user.notes.length === 0) {
+        return bot.sendMessage(msg.chat.id, "I don't have any information stored for you yet.");
     }
-});
+    let response = "Here's what I remember for you:\n\n";
+    user.notes.forEach(note => {
+        response += `• **${note.tag}**: ${note.content}\n`;
+    });
+    await bot.sendMessage(msg.chat.id, response, { parse_mode: 'Markdown' });
+}));
 
-// '/myinfo' command to see what the bot remembers
-bot.onText(/\/myinfo/, async (msg) => {
-    const chatId = msg.chat.id;
-    try {
-        const user = await User.findOne({ telegramId: chatId.toString() });
-        if (!user || user.notes.length === 0) {
-            return bot.sendMessage(chatId, "I don't have any information stored for you yet. Use `/remember <keyword> <information>` to teach me!");
-        }
-        let response = "Here's what I remember for you:\n\n";
-        user.notes.forEach(note => {
-            response += `• **${note.tag}**: ${note.content}\n`;
-        });
-        await bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
-    } catch (error) {
-        console.error("Error in /myinfo command:", error);
-        await bot.sendMessage(chatId, "Sorry, I had trouble retrieving your information.");
-    }
-});
-
-// '/forget' command to delete a piece of information
-bot.onText(/\/forget (\w+)/, async (msg, match) => {
-    const chatId = msg.chat.id;
+bot.onText(/\/forget (\w+)/, withUser(async (msg, match, user) => {
     const tagToForget = match[1].toLowerCase();
+    const initialNotesCount = user.notes.length;
+    user.notes = user.notes.filter(note => note.tag !== tagToForget);
 
-    try {
-        const user = await User.findOne({ telegramId: chatId.toString() });
-        if (!user) return bot.sendMessage(chatId, "Please link your account first.");
-
-        const initialNotesCount = user.notes.length;
-        user.notes = user.notes.filter(note => note.tag !== tagToForget);
-
-        if (user.notes.length === initialNotesCount) {
-            return await bot.sendMessage(chatId, `🤔 I don't have any information stored with the keyword **${tagToForget}**.`, { parse_mode: 'Markdown' });
-        }
-
-        await user.save();
-        await bot.sendMessage(chatId, `✅ Okay, I have forgotten about **${tagToForget}**.`, { parse_mode: 'Markdown' });
-        console.log(`[MEMORY] User ${user.name} forgot note with tag: ${tagToForget}`);
-    } catch (error) {
-        console.error("Error in /forget command:", error);
-        await bot.sendMessage(chatId, "Sorry, I had trouble forgetting that information.");
+    if (user.notes.length === initialNotesCount) {
+        return await bot.sendMessage(msg.chat.id, `🤔 I don't have any information stored for **${tagToForget}**.`, { parse_mode: 'Markdown' });
     }
-});
+    await user.save();
+    await bot.sendMessage(msg.chat.id, `✅ Okay, I have forgotten about **${tagToForget}**.`, { parse_mode: 'Markdown' });
+    console.log(`[MEMORY] User ${user.name} forgot note with tag: ${tagToForget}`);
+}));
 
 
-// --- 8. UPGRADED MAIN MESSAGE HANDLER ---
+bot.onText(/\/remind me to (.+)/, withUser(async (msg, match, user) => {
+    const fullReminderText = match[1];
+    const parsedResult = chrono.parse(fullReminderText, new Date(), { forwardDate: true });
 
+    if (!parsedResult || parsedResult.length === 0) {
+        return bot.sendMessage(msg.chat.id, "🤔 I couldn't understand the time. Try something like `...in 1 hour` or `...tomorrow at 9am`.");
+    }
+
+    const remindAt = parsedResult[0].start.date();
+    const reminderMessage = fullReminderText.replace(parsedResult[0].text, '').trim();
+
+    if (!reminderMessage) return bot.sendMessage(msg.chat.id, "Please provide a message for the reminder!");
+
+    await Reminder.create({ user: user._id, chatId: msg.chat.id.toString(), message: reminderMessage, remindAt });
+    const confirmationTime = remindAt.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+    await bot.sendMessage(msg.chat.id, `✅ Okay, I will remind you to "${reminderMessage}" at ${confirmationTime}.`);
+    console.log(`[REMINDER SET] User ${user.name} set a reminder for ${confirmationTime}`);
+}));
+
+// NEW: List active reminders
+bot.onText(/\/myreminders/, withUser(async (msg, match, user) => {
+    const reminders = await Reminder.find({ user: user._id, isSent: false }).sort({ remindAt: 1 });
+    if (reminders.length === 0) {
+        return bot.sendMessage(msg.chat.id, "You have no active reminders.");
+    }
+    let response = "Here are your active reminders:\n\n";
+    reminders.forEach(r => {
+        const reminderId = r._id.toString().slice(-6); // A short, unique ID for deletion
+        response += `• "${r.message}" at ${r.remindAt.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}\n  (ID: \`${reminderId}\`)\n`;
+    });
+    response += "\nTo delete one, use `/deletereminder <ID>`.";
+    await bot.sendMessage(msg.chat.id, response, { parse_mode: 'Markdown' });
+}));
+
+// NEW: Delete a reminder
+bot.onText(/\/deletereminder (\w+)/, withUser(async (msg, match, user) => {
+    const shortId = match[1];
+    try {
+        const reminder = await Reminder.findOne({ _id: { $regex: `${shortId}$` }, user: user._id });
+        if (!reminder) {
+            return bot.sendMessage(msg.chat.id, "🤔 I couldn't find a reminder with that ID.");
+        }
+        await Reminder.findByIdAndDelete(reminder._id);
+        await bot.sendMessage(msg.chat.id, `✅ Reminder "${reminder.message}" has been deleted.`);
+        console.log(`[REMINDER DELETED] User ${user.name} deleted reminder ${reminder._id}`);
+    } catch (error) {
+        await bot.sendMessage(msg.chat.id, "That doesn't look like a valid ID. Please use the 6-character ID from `/myreminders`.");
+    }
+}));
+
+
+// --- 10. MAIN AI CONVERSATION HANDLER ---
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const messageText = msg.text;
 
-    // Ignore commands (handled by onText) and messages from other bots
-    if (!messageText || messageText.startsWith('/') || msg.from.is_bot) {
-        return;
-    }
+    if (!messageText || messageText.startsWith('/') || msg.from.is_bot) return;
 
     console.log(`--- [GEMINI FLOW] Received message from chat ID: ${chatId} ---`);
     try {
-        console.log('[GEMINI FLOW] 1. Finding user...');
         const appUser = await User.findOne({ telegramId: chatId.toString() });
-
-        if (!appUser) {
-            console.log('[GEMINI FLOW] [FAIL] User not found.');
-            // You can optionally message the user to /start
-            return bot.sendMessage(chatId, "I don't seem to know you. Please use your unique `/start` command to link your account.");
-        }
-        // CORRECTED from appUser.username to appUser.name
-        console.log(`[GEMINI FLOW] [OK] User "${appUser.name}" found.`);
+        if (!appUser) return bot.sendMessage(chatId, "Your account isn't linked. Please use `/start`.");
 
         if (!appUser.isAiBotActive) {
-            console.log(`[GEMINI FLOW] [FAIL] Bot is not active for this user.`);
-            return; // Don't message the user if the bot is off
+            console.log(`[GEMINI FLOW] [INFO] Bot is not active for this user.`);
+            return;
         }
 
         if (appUser.credits <= 0) {
             console.log(`[GEMINI FLOW] [FAIL] User has no credits.`);
-            return bot.sendMessage(chatId, "⚠️ You have no credits left. Please visit the website to top up.");
+            return bot.sendMessage(chatId, "⚠️ You have no credits left. Please top up on the website.");
         }
-        console.log(`[GEMINI FLOW] [OK] User has ${appUser.credits} credits.`);
 
         await bot.sendChatAction(chatId, 'typing');
 
-        // --- THE MAGIC: CONSTRUCT THE PERSONALIZED PROMPT ---
-        let systemPrompt = `You are a helpful AI assistant. Act naturally, as if you already know the information the user has provided. Do not mention that you have "stored information" or are "accessing notes". Just use the context seamlessly in your conversation.`;
-
+        let systemPrompt = `You are a helpful AI assistant. Act naturally, as if you already know the information the user has provided. Do not mention that you have "stored information" or "accessing notes". Just use the context seamlessly in your conversation.`;
         if (appUser.notes && appUser.notes.length > 0) {
             const userNotes = appUser.notes.map(n => `- ${n.tag}: ${n.content}`).join('\n');
-            systemPrompt += `\n\n[START OF USER'S STORED INFORMATION]\n${userNotes}\n[END OF USER'S STORED INFORMATION]`;
+            systemPrompt += `\n\nHere is some context about the user you should know:\n${userNotes}`;
         }
-        
         const fullPrompt = systemPrompt + "\n\nUser's message: " + messageText;
-        console.log(`[GEMINI FLOW] 2. Constructed personalized prompt for user ${appUser.name}.`);
-        // --- END OF THE MAGIC ---
 
-        console.log(`[GEMINI FLOW] 3. Calling Google Gemini API...`);
-        const geminiResponse = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`,
-            { contents: [{ parts: [{ text: fullPrompt }] }] } // Use the new powerful prompt!
-        );
-        console.log(`[GEMINI FLOW] 4. Received response from Gemini.`);
+        // UPDATED: Call Gemini using the new retry helper
+        const geminiResponse = await callGeminiWithRetry(fullPrompt);
 
-        if (geminiResponse.data && geminiResponse.data.candidates && geminiResponse.data.candidates.length > 0) {
-            const aiReply = geminiResponse.data.candidates[0].content.parts[0].text;
-            await bot.sendMessage(chatId, aiReply);
-            console.log('[GEMINI FLOW] 5. Sent reply and updating database...');
-
-            // Update credits and log activity
-            appUser.credits -= 1;
-            await appUser.save();
-            await Activity.create({
-                user: appUser._id,
-                activityType: 'ai_reply_sent',
-                description: 'AI reply sent via Telegram Bot.',
-                creditChange: -1,
-            });
-            console.log(`[GEMINI FLOW] 6. [COMPLETE] User has ${appUser.credits} credits remaining.`);
-        } else {
+        if (!geminiResponse.data.candidates || geminiResponse.data.candidates.length === 0) {
             console.log('[GEMINI FLOW] [FAIL] Gemini response was empty or blocked.');
-            await bot.sendMessage(chatId, '🤖 I could not get a valid response. Please try rephrasing your message.');
+            return bot.sendMessage(chatId, '🤖 I could not get a valid response. Please try rephrasing.');
         }
+
+        const aiReply = geminiResponse.data.candidates[0].content.parts[0].text;
+        await bot.sendMessage(chatId, aiReply);
+
+        appUser.credits -= 1;
+        await appUser.save();
+        await Activity.create({
+            user: appUser._id,
+            activityType: 'ai_reply_sent',
+            description: 'AI reply sent via Telegram Bot.',
+            creditChange: -1,
+        });
+        console.log(`[GEMINI FLOW] [COMPLETE] User has ${appUser.credits} credits remaining.`);
+
     } catch (err) {
         console.error('--- [GEMINI FLOW] FATAL ERROR ---', err.isAxiosError ? err.response.data : err);
         await bot.sendMessage(chatId, '🤖 Sorry, a critical error occurred. The developers have been notified.');
     }
 });
 
-// 9. EXPORT THE BOT INSTANCE
+
+// --- 11. BACKGROUND SCHEDULER & ERROR HANDLERS ---
+console.log('⏰ Reminder scheduler initialized. Checking every minute.');
+cron.schedule('* * * * *', async () => {
+    const dueReminders = await Reminder.find({ remindAt: { $lte: new Date() }, isSent: false });
+    for (const reminder of dueReminders) {
+        try {
+            await bot.sendMessage(reminder.chatId, `🔔 **Reminder:**\n${reminder.message}`, { parse_mode: 'Markdown' });
+            reminder.isSent = true;
+            await reminder.save();
+            console.log(`[REMINDER SENT] Sent reminder to chat ID ${reminder.chatId}`);
+        } catch (error) {
+            console.error(`[SCHEDULER] Failed to send reminder ${reminder._id}:`, error);
+            reminder.isSent = true;
+            await reminder.save();
+        }
+    }
+});
+
+bot.on('polling_error', (error) => console.log(`[POLLING ERROR] ${error.code}: ${error.message}`));
+bot.on('webhook_error', (error) => console.log(`[WEBHOOK ERROR] ${error.code}: ${error.message}`));
+
+// --- 12. EXPORT ---
 module.exports = { bot };
