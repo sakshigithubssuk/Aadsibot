@@ -20,7 +20,7 @@ const Profile = () => {
   const fetchLatestProfile = useCallback(async () => {
     if (token) {
       try {
-        const res = await axios.get('http://localhost:5000/api/auth/profile', {
+        const res = await axios.get('https://aadsibot.onrender.com/api/auth/profile', {
           headers: { Authorization: `Bearer ${token}` }
         });
         updateUser(res.data);
