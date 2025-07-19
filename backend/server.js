@@ -26,7 +26,7 @@ const app = express();
 // --- 4. MIDDLEWARE CONFIGURATION ---
 // CORS
 app.use(cors({
-  origin: 'http://localhost:5173', // Your React app's URL
+  origin:  'https://aadsibot.vercel.app', // Your React app's URL
   credentials: true,
 }));
 
