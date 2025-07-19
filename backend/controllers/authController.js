@@ -83,3 +83,29 @@ const getProfile = async (req, res) => {
   registerUser,
   loginUser
  }
+
+
+exports.updateProfilePictureUrl = async (req, res) => {
+  const { imageUrl } = req.body;
+
+  if (!imageUrl) {
+    return res.status(400).json({ message: 'No image URL was provided.' });
+  }
+
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { profilePicture: imageUrl },
+      { new: true }
+    ).select('-password');
+    
+    res.json({
+      message: 'Profile picture updated successfully',
+      user,
+    });
+
+  } catch (error) {
+    console.error("Error saving image URL to database:", error);
+    res.status(500).json({ message: 'Server error while updating profile picture.' });
+  }
+};
