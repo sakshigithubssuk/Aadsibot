@@ -5,11 +5,12 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  whatsappNumber: { type: String, required: true },
+  whatsappNumber: { type: String},
   credits: { type: Number, default: 10 }, // Free credits
-
-  // --- FIELDS REQUIRED FOR TELEGRAM BOT ---
-
+  profilePicture: { 
+    type: String, 
+    default: '' // Default to an empty string
+  },
   // 1. To store the link between your user and their Telegram account.
   telegramId: {
     type: String,
@@ -35,9 +36,7 @@ const userSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-// --- NO CHANGES NEEDED BELOW THIS LINE ---
 
-// Hash password before saving
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 10);
