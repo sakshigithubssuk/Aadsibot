@@ -63,7 +63,7 @@ const Profile = () => {
       formData.append('profileImage', file);
 
       const res = await axios.post(
-        'http://localhost:5000/api/auth/upload-profile',
+        'https://aadsibot.onrender.com/api/auth/upload-profile',
         formData,
         {
           headers: {
@@ -91,7 +91,7 @@ const Profile = () => {
 
     try {
         const res = await axios.delete(
-            'http://localhost:5000/api/auth/remove-profile', 
+            'https://aadsibot.onrender.com/api/auth/remove-profile', 
             {
                 headers: { Authorization: `Bearer ${token}` }
             }
@@ -130,7 +130,7 @@ const Profile = () => {
         <div className="profile-picture-container" onClick={handleImageClick}>
           {user.profilePicture ? (
             <img
-              src={`http://localhost:5000${user.profilePicture}`}
+              src={`https://aadsibot.onrender.com${user.profilePicture}`}
               alt="Profile"
               className="profile-picture"
             />
