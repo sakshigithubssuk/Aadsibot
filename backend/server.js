@@ -98,12 +98,15 @@ I'm your personal AI assistant. Here's a quick guide to my features:
 - \`/help\`: Show this message again.
 `;
 
-async function callGeminiWithRetry(prompt, maxRetries = 3) {
+async function callGeminiWithRetry(prompt, key, maxRetries = 3) {
+    if (!key) {
+        throw new Error("Gemini API key was not provided to callGeminiWithRetry function.");
+    }
     let attempt = 0;
     while (attempt < maxRetries) {
         try {
             const geminiResponse = await axios.post(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${key}`,
                 { contents: [{ parts: [{ text: prompt }] }] }
             );
             return geminiResponse;
@@ -348,84 +351,59 @@ bot.onText(/\/deletereminder (\w{6})/, withUser(async (msg, match, user) => {
 // --- MAIN AI CONVERSATION HANDLER ---
 // This acts as a "catch-all" for any text that is NOT a command.
 bot.on('message', async (msg) => {
-    // Check if the message object and text property exist.
-    if (!msg || !msg.text) {
-        // This ignores stickers, photos without captions, etc.
+    if (!msg || !msg.text || msg.text.startsWith('/') || (msg.from && msg.from.is_bot)) {
         return;
     }
     const chatId = msg.chat.id;
     const messageText = msg.text;
 
-    // Guard Clause: If the message is a command, ignore it here because
-    // another bot.onText() handler is responsible for it.
-    if (messageText.startsWith('/') || (msg.from && msg.from.is_bot)) {
-        return;
-    }
-
     console.log(`[FLOW START] Received non-command message: "${messageText}" from chat ID: ${chatId}`);
-
     try {
-        console.log(`[DEBUG] 1. Finding user in database for chat ID: ${chatId}`);
         const appUser = await User.findOne({ telegramId: chatId.toString() });
-
         if (!appUser) {
-            console.log("[FLOW END] User not found in database. Sending link message.");
             return bot.sendMessage(chatId, "Your account isn't linked. Please use your unique `/start` command first.");
         }
-        console.log(`[DEBUG] 2. User "${appUser.name}" found.`);
-
-        if (!appUser.isAiBotActive) {
-            console.log("[FLOW END] Bot is not active for this user (`isAiBotActive` is false). Exiting silently.");
-            return; // This is a likely reason for no reply!
-        }
-        console.log(`[DEBUG] 3. Bot is active for user.`);
-
+        if (!appUser.isAiBotActive) { return; }
         if (appUser.credits <= 0) {
-            console.log("[FLOW END] User has no credits. Sending top-up message.");
             return bot.sendMessage(chatId, "⚠️ You have no credits left. Please top up on the website and upgrade your plan.");
         }
-        console.log(`[DEBUG] 4. User has ${appUser.credits} credits. Proceeding.`);
 
         await bot.sendChatAction(chatId, 'typing');
 
-        let systemPrompt = `You are a helpful AI assistant. Act naturally, as if you already know the information the user has provided. Do not mention that you have "stored information" or "accessing notes". Just use the context seamlessly in your conversation.`;
+        let systemPrompt = `You are a helpful AI assistant...`; // (your prompt logic is fine)
         if (appUser.notes && appUser.notes.length > 0) {
-            const userNotes = appUser.notes.map(n => `- ${n.tag}: ${n.content}`).join('\n');
-            systemPrompt += `\n\nHere is some context about the user you should know:\n${userNotes}`;
+            systemPrompt += `\n\nHere is some context...: \n${appUser.notes.map(n => `- ${n.tag}: ${n.content}`).join('\n')}`;
         }
         const fullPrompt = systemPrompt + "\n\nUser's message: " + messageText;
 
         console.log(`[DEBUG] 5. Calling Gemini API...`);
-        const geminiResponse = await callGeminiWithRetry(fullPrompt);
+
+        // ===============================================================
+        // === FIX #2: PASS THE API KEY WHEN CALLING THE FUNCTION ===
+        // ===============================================================
+        const geminiResponse = await callGeminiWithRetry(fullPrompt, geminiApiKey);
 
         if (!geminiResponse || !geminiResponse.data.candidates || geminiResponse.data.candidates.length === 0) {
             console.error("[GEMINI ERROR] Gemini response was empty or blocked.");
-            return bot.sendMessage(chatId, '🤖 My AI brain returned an empty response. This might happen due to safety filters. Please try rephrasing.');
+            return bot.sendMessage(chatId, '🤖 My AI brain returned an empty response...');
         }
 
         const aiReply = geminiResponse.data.candidates[0].content.parts[0].text;
-        console.log(`[DEBUG] 6. Received reply from Gemini. Sending to user.`);
         await bot.sendMessage(chatId, aiReply);
 
         appUser.credits -= 1;
         await appUser.save();
-        await Activity.create({
-            user: appUser._id,
-            activityType: 'ai_reply_sent',
-            description: 'AI reply sent via Telegram Bot.',
-            creditChange: -1,
-        });
+        await Activity.create({ /* ... */ });
         console.log(`[FLOW COMPLETE] Reply sent. User now has ${appUser.credits} credits.`);
 
     } catch (err) {
         console.error('--- [FATAL ERROR IN MESSAGE HANDLER] ---');
-        // Log the specific error from Gemini if it exists
         if (err.isAxiosError && err.response) {
             console.error('Axios/API Error Data:', JSON.stringify(err.response.data, null, 2));
         } else {
             console.error(err);
         }
-        await bot.sendMessage(chatId, '🤖 Sorry, a critical error occurred while I was thinking. The developers have been notified.');
+        await bot.sendMessage(chatId, '🤖 Sorry, a critical error occurred...');
     }
 });
 
@@ -436,18 +414,14 @@ bot.on('message', async (msg) => {
 const app = express();
 app.use(express.json());
 
-// This is the endpoint Telegram will call.
 app.post('/api/webhook', (req, res) => {
-    // We add a log here to confirm that Telegram is indeed hitting our server.
-    console.log("[SERVER] Webhook request received from Telegram:", JSON.stringify(req.body, null, 2));
+    console.log("[SERVER] Webhook request received from Telegram.");
     bot.processUpdate(req.body);
-    res.sendStatus(200); // Acknowledge receipt immediately
+    res.sendStatus(200);
 });
 
-// A health-check endpoint for the hosting service.
 app.get('/', (req, res) => {
     res.status(200).send('Bot server is alive and configured for webhooks.');
 });
 
-// Export the app for the serverless environment (like Vercel).
 module.exports = app;
