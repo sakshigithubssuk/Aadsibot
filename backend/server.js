@@ -45,8 +45,8 @@ mongoose.connect(mongoURI)
     .catch(err => console.error('❌ MongoDB connection error:', err));
 
 // 5. INITIALIZE TELEGRAM BOT (WITHOUT POLLING)
-const bot = new TelegramBot(telegramBotToken);
 
+const bot = new TelegramBot(telegramBotToken, { polling: false });
 // This tells Telegram where to send updates.
 bot.setWebhook(`${webhookUrl}/api/webhook`)
     .then(() => console.log(`✅ Bot webhook is successfully set to: ${webhookUrl}/api/webhook`))
