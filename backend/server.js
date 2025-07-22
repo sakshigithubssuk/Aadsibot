@@ -415,5 +415,8 @@ app.post('/api/webhook', (req, res) => {
 app.get('/', (req, res) => {
     res.status(200).send('Bot server is alive and configured for webhooks.');
 });
-
+// =================================================================
+app.listen(PORT, () => {
+    console.log(`✅ Server is running and listening for requests on port ${PORT}`);
+});
 module.exports = app;
