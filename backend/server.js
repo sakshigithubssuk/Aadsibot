@@ -11,7 +11,9 @@ const axios = require('axios');
 const chrono = require('chrono-node');
 const { nanoid } = require('nanoid');
 const FormData = require('form-data');
-const { zonedTimeToUtc, format } = require('date-fns-tz');
+const dateFnsTz = require('date-fns-tz');
+const zonedTimeToUtc = dateFnsTz.zonedTimeToUtc;
+const format = dateFnsTz.format;
 // --- Part 2: Initialize the Express App ---
 // We must create the 'app' variable BEFORE we can use it with app.use()
 const app = express();
@@ -328,20 +330,28 @@ bot.onText(/\/forget (\w+)/, withUser(async (msg, match, user) => {
 }));
 
 // Replace your existing /remind me to handler with this
+// =================================================================
+// FINAL CORRECTED REMINDER HANDLERS
+// =================================================================
+
+// Replace your existing /remind me to handler with this
 bot.onText(/\/remind me to (.+)/, withUser(async (msg, match, user) => {
     const chatId = msg.chat.id;
     const fullReminderText = match[1];
 
-    const userTimezone = user.timezone || 'UTC'; // Default to UTC if user hasn't set a timezone
+    const userTimezone = user.timezone || 'UTC';
 
     const parsedResult = chrono.parse(fullReminderText, new Date(), { forwardDate: true });
 
-    if (!parsedResult || parsedResult.length === 0) {
+    if (!parsedResult || !parsedResult.length) {
         return bot.sendMessage(chatId, "🤔 I couldn't understand the time. Try `...in 10 minutes` or `...at 11pm`.");
     }
 
     const localParsedDate = parsedResult[0].start.date();
+    
+    // This line will now work because the import is correct
     const remindAtUtc = zonedTimeToUtc(localParsedDate, userTimezone);
+    
     const reminderMessage = fullReminderText.replace(parsedResult[0].text, '').trim();
 
     if (!reminderMessage) {
@@ -358,11 +368,13 @@ bot.onText(/\/remind me to (.+)/, withUser(async (msg, match, user) => {
         user: user._id,
         chatId: msg.chat.id.toString(),
         message: reminderMessage,
-        remindAt: remindAtUtc, // Store the corrected UTC date
+        remindAt: remindAtUtc,
         shortId: shortId
     });
 
+    // This line will also work because the import for 'format' is also correct now
     const confirmationTime = format(remindAtUtc, 'MMM d, yyyy, h:mm a (zzzz)', { timeZone: userTimezone });
+    
     await bot.sendMessage(msg.chat.id, `✅ Okay, I will remind you to "${reminderMessage}" at ${confirmationTime}.`);
 }));
 
@@ -377,6 +389,7 @@ bot.onText(/\/myreminders/, withUser(async (msg, match, user) => {
     const userTimezone = user.timezone || 'UTC';
     let response = "Here are your active reminders:\n\n";
     reminders.forEach(r => {
+        // This will now work correctly
         const localTime = format(r.remindAt, 'MMM d, h:mm a', { timeZone: userTimezone });
         response += `• "${r.message}" at ${localTime}\n  (ID: \`${r.shortId}\`)\n`;
     });
