@@ -1,53 +1,78 @@
-
-// 1. LOAD ENVIRONMENT VARIABLES & LIBRARIES
 const dotenv = require('dotenv');
 dotenv.config();
 
-const express = require('express'); // For the web server
+const express = require('express');
+const cors = require('cors'); // Make sure you have run 'npm install cors'
+const path = require('path');
+const fs = require('fs');
+const mongoose = require('mongoose');
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
-const mongoose = require('mongoose');
 const chrono = require('chrono-node');
 const { nanoid } = require('nanoid');
 const FormData = require('form-data');
-const fs = require('fs');
-const path = require('path'); // To handle file paths correctly
 
-// 2. IMPORT DATABASE MODELS
-const User = require('./models/User');
-const Activity = require('./models/Activity');
-const Reminder = require('./models/Reminder');
+// --- Part 2: Initialize the Express App ---
+// We must create the 'app' variable BEFORE we can use it with app.use()
+const app = express();
+app.use(express.json()); // Middleware to parse JSON bodies
 
-// 3. INITIALIZE & VALIDATE VARIABLES
+// CORS Middleware to allow your frontend to connect
+app.use(cors({
+  origin: 'https://aadsibot.vercel.app', // Your React app's URL
+  credentials: true,
+}));
+
+// --- Part 4: Environment Variable Validation ---
 const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const mongoURI = process.env.MONGO_URI;
 const stabilityApiKey = process.env.STABILITY_API_KEY;
 const tenorApiKey = process.env.TENOR_API_KEY;
 const deepaiApiKey = process.env.DEEPAI_API_KEY;
-const webhookUrl = process.env.WEBHOOK_URL; // e.g., https://your-app.onrender.com
-const port = process.env.PORT;
-// CRITICAL: We add webhookUrl to the check, as it's now required
-if (!telegramBotToken || !mongoURI || !geminiApiKey  || !webhookUrl) {
-    console.error('FATAL ERROR: One or more required environment variables are missing (TELEGRAM_BOT_TOKEN, MONGO_URI, GEMINI_API_KEY, DEEPAI_API_KEY, WEBHOOK_URL).');
+const webhookUrl = process.env.WEBHOOK_URL;
+const port = process.env.PORT || 5050; // Use PORT from env, or default to 5050
+
+if (!telegramBotToken || !mongoURI || !geminiApiKey || !webhookUrl) {
+    console.error('FATAL ERROR: A required environment variable is missing.');
     throw new Error('FATAL ERROR: Missing required environment variables.');
 }
 
-// In a serverless environment, only the /tmp directory is guaranteed to be writable.
-const downloadsDir = path.join('/tmp', 'downloads');
-if (!fs.existsSync(downloadsDir)){
-    fs.mkdirSync(downloadsDir, { recursive: true });
-}
-
-// 4. CONNECT TO MONGODB
+// --- Part 5: Database Connection ---
 mongoose.connect(mongoURI)
     .then(() => console.log('✅ MongoDB connection successful.'))
     .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// 5. INITIALIZE TELEGRAM BOT (WITHOUT POLLING)
+// --- Part 6: Import Database Models and API Routes ---
+// These should come after the DB connection is initiated
+const User = require('./models/User');
+const Activity = require('./models/Activity');
+const Reminder = require('./models/Reminder');
 
+// Assuming your route files exist
+const authRoutes = require('./routes/authRoutes');
+const feedbackRoutes = require('./routes/feedbackRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const userRoutes = require('./routes/userRoutes');
+const activityRoutes = require('./routes/activityRoutes');
+
+// --- Part 7: Setup API and Static File Routes ---
+// Serve static files (like profile pictures)
+const uploadPath = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadPath)) {
+  fs.mkdirSync(uploadPath, { recursive: true });
+}
+app.use('/uploads', express.static(uploadPath));
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/payment', paymentRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/activity', activityRoutes);
+
+// --- Part 8: Telegram Bot Setup & Logic ---
 const bot = new TelegramBot(telegramBotToken, { polling: false });
-
 
 const withUser = (commandLogic) => async (msg, match) => {
     const chatId = msg.chat.id;
@@ -114,10 +139,7 @@ async function callGeminiWithRetry(prompt, key, maxRetries = 3) {
         }
     }
 }
-
-// --- CORE COMMAND HANDLERS ---
-// The order matters: specific commands must be defined before the general 'message' handler.
-
+// All your bot.on() and bot.onText() handlers go here
 bot.onText(/\/start (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const userId = match[1];
@@ -340,12 +362,6 @@ bot.onText(/\/deletereminder (\w{6})/, withUser(async (msg, match, user) => {
     await bot.sendMessage(msg.chat.id, `✅ Reminder "${reminder.message}" has been deleted.`);
 }));
 
-// --- MAIN AI CONVERSATION HANDLER ---
-// This acts as a "catch-all" for any text that is NOT a command.
-// =================================================================
-// THE FINAL AND CORRECT bot.on('message', ...) HANDLER
-// This version solves the "Activity validation failed" error.
-// =================================================================
 bot.on('message', async (msg) => {
     // Guard clause to ignore non-text messages, commands, or messages from other bots
     if (!msg || !msg.text || msg.text.startsWith('/') || (msg.from && msg.from.is_bot)) {
@@ -414,24 +430,23 @@ bot.on('message', async (msg) => {
         await bot.sendMessage(chatId, '🤖 Sorry, a critical error occurred while saving our conversation. Please contact support if this continues.');
     }
 });
-
-// =================================================================
-// 7. SETUP THE EXPRESS WEB SERVER
-// =================================================================
-const app = express();
-app.use(express.json());
+// --- Part 9: Setup Telegram Webhook Route ---
 
 app.post('/api/webhook', (req, res) => {
-    console.log("[SERVER] Webhook request received from Telegram.");
     bot.processUpdate(req.body);
-    res.sendStatus(200);
+    res.sendStatus(200); // Acknowledge the request
 });
 
+// A simple health-check route
 app.get('/', (req, res) => {
-    res.status(200).send('Bot server is alive and configured for webhooks.');
+    res.status(200).send('Aadsibot API and Bot Server is running.');
 });
-// =================================================================
+
+
+
 app.listen(port, () => {
-    console.log(`✅ Server is running and listening for requests on port ${port}`);
-});
+    console.log(`✅ Server is running and listening on port ${port}`);
+   });
+
+
 module.exports = app;
