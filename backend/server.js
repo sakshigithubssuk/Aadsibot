@@ -342,7 +342,12 @@ bot.onText(/\/deletereminder (\w{6})/, withUser(async (msg, match, user) => {
 
 // --- MAIN AI CONVERSATION HANDLER ---
 // This acts as a "catch-all" for any text that is NOT a command.
+// =================================================================
+// THE FINAL AND CORRECT bot.on('message', ...) HANDLER
+// This version solves the "Activity validation failed" error.
+// =================================================================
 bot.on('message', async (msg) => {
+    // Guard clause to ignore non-text messages, commands, or messages from other bots
     if (!msg || !msg.text || msg.text.startsWith('/') || (msg.from && msg.from.is_bot)) {
         return;
     }
@@ -355,50 +360,60 @@ bot.on('message', async (msg) => {
         if (!appUser) {
             return bot.sendMessage(chatId, "Your account isn't linked. Please use your unique `/start` command first.");
         }
-        if (!appUser.isAiBotActive) { return; }
+        if (!appUser.isAiBotActive) {
+            // Silently exit if the bot is disabled for the user
+            return;
+        }
         if (appUser.credits <= 0) {
-            return bot.sendMessage(chatId, "⚠️ You have no credits left. Please top up on the website and upgrade your plan.");
+            return bot.sendMessage(chatId, "⚠️ You have no credits left. Please top up on the website to continue.");
         }
 
         await bot.sendChatAction(chatId, 'typing');
 
-        let systemPrompt = `You are a helpful AI assistant...`; // (your prompt logic is fine)
+        let systemPrompt = `You are a helpful AI assistant. Act naturally, as if you already know the information the user has provided. Do not mention that you have "stored information" or "accessing notes". Just use the context seamlessly in your conversation.`;
         if (appUser.notes && appUser.notes.length > 0) {
-            systemPrompt += `\n\nHere is some context...: \n${appUser.notes.map(n => `- ${n.tag}: ${n.content}`).join('\n')}`;
+            const userNotes = appUser.notes.map(n => `- ${n.tag}: ${n.content}`).join('\n');
+            systemPrompt += `\n\nHere is some context about the user you should know:\n${userNotes}`;
         }
         const fullPrompt = systemPrompt + "\n\nUser's message: " + messageText;
 
-        console.log(`[DEBUG] 5. Calling Gemini API...`);
-
-        // ===============================================================
-        // === FIX #2: PASS THE API KEY WHEN CALLING THE FUNCTION ===
-        // ===============================================================
+        const geminiApiKey = process.env.GEMINI_API_KEY;
         const geminiResponse = await callGeminiWithRetry(fullPrompt, geminiApiKey);
 
-        if (!geminiResponse || !geminiResponse.data.candidates || geminiResponse.data.candidates.length === 0) {
+        if (!geminiResponse || !geminiResponse.data.candidates || !geminiResponse.data.candidates.length === 0) {
             console.error("[GEMINI ERROR] Gemini response was empty or blocked.");
-            return bot.sendMessage(chatId, '🤖 My AI brain returned an empty response...');
+            return bot.sendMessage(chatId, '🤖 My AI brain returned an empty response. This might happen due to safety filters. Please try rephrasing.');
         }
 
         const aiReply = geminiResponse.data.candidates[0].content.parts[0].text;
+        
+        // --- Step 1: Send the reply to the user ---
         await bot.sendMessage(chatId, aiReply);
 
+        // --- Step 2: Update the user's data in the database ---
         appUser.credits -= 1;
         await appUser.save();
-        await Activity.create({ /* ... */ });
-        console.log(`[FLOW COMPLETE] Reply sent. User now has ${appUser.credits} credits.`);
+
+        // --- Step 3: Log the activity to the database ---
+        // This is the corrected block that provides all required fields to your Activity model.
+        await Activity.create({
+            user: appUser._id,                                         // Fulfills the 'user' requirement
+            activityType: 'ai_reply_sent',                             // Fulfills the 'activityType' requirement and is in your enum
+            description: `AI replied to: "${messageText.substring(0, 100)}"`, // Fulfills the 'description' requirement
+            creditChange: -1                                           // Included for good logging
+        });
+        
+        console.log(`[FLOW COMPLETE] Reply sent and activity logged. User has ${appUser.credits} credits remaining.`);
 
     } catch (err) {
+        // This 'catch' block will no longer be triggered by the validation error.
         console.error('--- [FATAL ERROR IN MESSAGE HANDLER] ---');
-        if (err.isAxiosError && err.response) {
-            console.error('Axios/API Error Data:', JSON.stringify(err.response.data, null, 2));
-        } else {
-            console.error(err);
-        }
-        await bot.sendMessage(chatId, '🤖 Sorry, a critical error occurred...');
+        console.error(err); // This will print the full error object to your Render logs
+        
+        // Send a user-friendly error message.
+        await bot.sendMessage(chatId, '🤖 Sorry, a critical error occurred while saving our conversation. Please contact support if this continues.');
     }
 });
-
 
 // =================================================================
 // 7. SETUP THE EXPRESS WEB SERVER
