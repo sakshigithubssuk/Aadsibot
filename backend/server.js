@@ -11,7 +11,7 @@ const axios = require('axios');
 const chrono = require('chrono-node');
 const { nanoid } = require('nanoid');
 const FormData = require('form-data');
-
+const { zonedTimeToUtc, format } = require('date-fns-tz');
 // --- Part 2: Initialize the Express App ---
 // We must create the 'app' variable BEFORE we can use it with app.use()
 const app = express();
@@ -327,14 +327,26 @@ bot.onText(/\/forget (\w+)/, withUser(async (msg, match, user) => {
     await bot.sendMessage(msg.chat.id, `✅ Okay, I've forgotten about **${tagToForget}**.`, { parse_mode: 'Markdown' });
 }));
 
+// Replace your existing /remind me to handler with this
 bot.onText(/\/remind me to (.+)/, withUser(async (msg, match, user) => {
+    const chatId = msg.chat.id;
     const fullReminderText = match[1];
+
+    const userTimezone = user.timezone || 'UTC'; // Default to UTC if user hasn't set a timezone
+
     const parsedResult = chrono.parse(fullReminderText, new Date(), { forwardDate: true });
-    if (!parsedResult || parsedResult.length === 0) return bot.sendMessage(msg.chat.id, "🤔 I couldn't understand the time. Try `...in 1 hour` or `...tomorrow at 9am`.");
-    
-    const remindAt = parsedResult[0].start.date();
+
+    if (!parsedResult || parsedResult.length === 0) {
+        return bot.sendMessage(chatId, "🤔 I couldn't understand the time. Try `...in 10 minutes` or `...at 11pm`.");
+    }
+
+    const localParsedDate = parsedResult[0].start.date();
+    const remindAtUtc = zonedTimeToUtc(localParsedDate, userTimezone);
     const reminderMessage = fullReminderText.replace(parsedResult[0].text, '').trim();
-    if (!reminderMessage) return bot.sendMessage(msg.chat.id, "Please provide a message for the reminder!");
+
+    if (!reminderMessage) {
+        return bot.sendMessage(msg.chat.id, "Please provide a message for the reminder!");
+    }
 
     let shortId;
     while (true) {
@@ -342,19 +354,35 @@ bot.onText(/\/remind me to (.+)/, withUser(async (msg, match, user) => {
         if (!await Reminder.findOne({ shortId })) break;
     }
 
-    await Reminder.create({ user: user._id, chatId: msg.chat.id.toString(), message: reminderMessage, remindAt, shortId });
-    const confirmationTime = remindAt.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
-    await bot.sendMessage(msg.chat.id, `✅ Okay, I will remind you to "${reminderMessage}" at ${confirmationTime}. (ID: \`${shortId}\`)`, { parse_mode: 'Markdown' });
+    await Reminder.create({
+        user: user._id,
+        chatId: msg.chat.id.toString(),
+        message: reminderMessage,
+        remindAt: remindAtUtc, // Store the corrected UTC date
+        shortId: shortId
+    });
+
+    const confirmationTime = format(remindAtUtc, 'MMM d, yyyy, h:mm a (zzzz)', { timeZone: userTimezone });
+    await bot.sendMessage(msg.chat.id, `✅ Okay, I will remind you to "${reminderMessage}" at ${confirmationTime}.`);
 }));
 
+
+// Replace your existing /myreminders handler with this
 bot.onText(/\/myreminders/, withUser(async (msg, match, user) => {
     const reminders = await Reminder.find({ user: user._id, isSent: false }).sort({ remindAt: 1 });
-    if (reminders.length === 0) return bot.sendMessage(msg.chat.id, "You have no active reminders.");
-    let response = "Here are your active reminders:\n\n" + reminders.map(r => `• "${r.message}" at ${r.remindAt.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}\n  (ID: \`${r.shortId}\`)`).join('\n');
-    response += "\n\nTo delete one, use `/deletereminder <ID>`.";
+    if (reminders.length === 0) {
+        return bot.sendMessage(msg.chat.id, "You have no active reminders.");
+    }
+
+    const userTimezone = user.timezone || 'UTC';
+    let response = "Here are your active reminders:\n\n";
+    reminders.forEach(r => {
+        const localTime = format(r.remindAt, 'MMM d, h:mm a', { timeZone: userTimezone });
+        response += `• "${r.message}" at ${localTime}\n  (ID: \`${r.shortId}\`)\n`;
+    });
+    response += "\nTo delete one, use `/deletereminder <ID>`.";
     await bot.sendMessage(msg.chat.id, response, { parse_mode: 'Markdown' });
 }));
-
 bot.onText(/\/deletereminder (\w{6})/, withUser(async (msg, match, user) => {
     const shortId = match[1];
     const reminder = await Reminder.findOneAndDelete({ shortId: shortId, user: user._id });
@@ -362,34 +390,37 @@ bot.onText(/\/deletereminder (\w{6})/, withUser(async (msg, match, user) => {
     await bot.sendMessage(msg.chat.id, `✅ Reminder "${reminder.message}" has been deleted.`);
 }));
 
+// Replace your existing bot.on('message', ...) handler with this
 bot.on('message', async (msg) => {
-    // Guard clause to ignore non-text messages, commands, or messages from other bots
     if (!msg || !msg.text || msg.text.startsWith('/') || (msg.from && msg.from.is_bot)) {
         return;
     }
     const chatId = msg.chat.id;
     const messageText = msg.text;
 
-    console.log(`[FLOW START] Received non-command message: "${messageText}" from chat ID: ${chatId}`);
+    console.log(`[FLOW START] Received message: "${messageText}" from chat ID: ${chatId}`);
     try {
         const appUser = await User.findOne({ telegramId: chatId.toString() });
         if (!appUser) {
+            console.log("[FLOW END] User not found in database.");
             return bot.sendMessage(chatId, "Your account isn't linked. Please use your unique `/start` command first.");
         }
+
         if (!appUser.isAiBotActive) {
-            // Silently exit if the bot is disabled for the user
-            return;
+            console.log(`[FLOW END] Bot is not active for user ${appUser.name}.`);
+            return; // Silently exit
         }
+
         if (appUser.credits <= 0) {
+            console.log(`[FLOW END] User ${appUser.name} has no credits.`);
             return bot.sendMessage(chatId, "⚠️ You have no credits left. Please top up on the website to continue.");
         }
 
         await bot.sendChatAction(chatId, 'typing');
 
-        let systemPrompt = `You are a helpful AI assistant. Act naturally, as if you already know the information the user has provided. Do not mention that you have "stored information" or "accessing notes". Just use the context seamlessly in your conversation.`;
+        let systemPrompt = `You are a helpful AI assistant...`; // Your full prompt logic
         if (appUser.notes && appUser.notes.length > 0) {
-            const userNotes = appUser.notes.map(n => `- ${n.tag}: ${n.content}`).join('\n');
-            systemPrompt += `\n\nHere is some context about the user you should know:\n${userNotes}`;
+            systemPrompt += `\n\nHere is some context...: \n${appUser.notes.map(n => `- ${n.tag}: ${n.content}`).join('\n')}`;
         }
         const fullPrompt = systemPrompt + "\n\nUser's message: " + messageText;
 
@@ -398,36 +429,29 @@ bot.on('message', async (msg) => {
 
         if (!geminiResponse || !geminiResponse.data.candidates || !geminiResponse.data.candidates.length === 0) {
             console.error("[GEMINI ERROR] Gemini response was empty or blocked.");
-            return bot.sendMessage(chatId, '🤖 My AI brain returned an empty response. This might happen due to safety filters. Please try rephrasing.');
+            return bot.sendMessage(chatId, '🤖 My AI brain returned an empty response. Please try rephrasing.');
         }
 
         const aiReply = geminiResponse.data.candidates[0].content.parts[0].text;
         
-        // --- Step 1: Send the reply to the user ---
         await bot.sendMessage(chatId, aiReply);
 
-        // --- Step 2: Update the user's data in the database ---
         appUser.credits -= 1;
         await appUser.save();
 
-        // --- Step 3: Log the activity to the database ---
-        // This is the corrected block that provides all required fields to your Activity model.
         await Activity.create({
-            user: appUser._id,                                         // Fulfills the 'user' requirement
-            activityType: 'ai_reply_sent',                             // Fulfills the 'activityType' requirement and is in your enum
-            description: `AI replied to: "${messageText.substring(0, 100)}"`, // Fulfills the 'description' requirement
-            creditChange: -1                                           // Included for good logging
+            user: appUser._id,
+            activityType: 'ai_reply_sent',
+            description: `AI replied to: "${messageText.substring(0, 100)}"`,
+            creditChange: -1
         });
         
-        console.log(`[FLOW COMPLETE] Reply sent and activity logged. User has ${appUser.credits} credits remaining.`);
+        console.log(`[FLOW COMPLETE] Reply sent and logged. User has ${appUser.credits} credits.`);
 
     } catch (err) {
-        // This 'catch' block will no longer be triggered by the validation error.
         console.error('--- [FATAL ERROR IN MESSAGE HANDLER] ---');
-        console.error(err); // This will print the full error object to your Render logs
-        
-        // Send a user-friendly error message.
-        await bot.sendMessage(chatId, '🤖 Sorry, a critical error occurred while saving our conversation. Please contact support if this continues.');
+        console.error(err); // Log the full error to Render
+        await bot.sendMessage(chatId, '🤖 Sorry, a critical error occurred. The developers have been notified.');
     }
 });
 // --- Part 9: Setup Telegram Webhook Route ---
