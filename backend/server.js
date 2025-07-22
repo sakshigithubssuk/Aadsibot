@@ -24,11 +24,11 @@ const geminiApiKey = process.env.GEMINI_API_KEY;
 const mongoURI = process.env.MONGO_URI;
 const stabilityApiKey = process.env.STABILITY_API_KEY;
 const tenorApiKey = process.env.TENOR_API_KEY;
-const deepaiApiKey = process.env.DEEPAI_API_KEY;
+//const deepaiApiKey = process.env.DEEPAI_API_KEY;
 const webhookUrl = process.env.WEBHOOK_URL; // e.g., https://your-app.onrender.com
 
 // CRITICAL: We add webhookUrl to the check, as it's now required
-if (!telegramBotToken || !mongoURI || !geminiApiKey || !deepaiApiKey || !webhookUrl) {
+if (!telegramBotToken || !mongoURI || !geminiApiKey  || !webhookUrl) {
     console.error('FATAL ERROR: One or more required environment variables are missing (TELEGRAM_BOT_TOKEN, MONGO_URI, GEMINI_API_KEY, DEEPAI_API_KEY, WEBHOOK_URL).');
     throw new Error('FATAL ERROR: Missing required environment variables.');
 }
