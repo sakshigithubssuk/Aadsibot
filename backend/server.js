@@ -47,15 +47,7 @@ mongoose.connect(mongoURI)
 // 5. INITIALIZE TELEGRAM BOT (WITHOUT POLLING)
 
 const bot = new TelegramBot(telegramBotToken, { polling: false });
-// This tells Telegram where to send updates.
-bot.setWebhook(`${webhookUrl}/api/webhook`)
-    .then(() => console.log(`✅ Bot webhook is successfully set to: ${webhookUrl}/api/webhook`))
-    .catch((err) => console.error(`❌ Failed to set webhook:`, err));
 
-
-// =================================================================
-// 6. ALL YOUR BOT LOGIC AND HANDLERS
-// =================================================================
 
 const withUser = (commandLogic) => async (msg, match) => {
     const chatId = msg.chat.id;
