@@ -26,7 +26,7 @@ const stabilityApiKey = process.env.STABILITY_API_KEY;
 const tenorApiKey = process.env.TENOR_API_KEY;
 const deepaiApiKey = process.env.DEEPAI_API_KEY;
 const webhookUrl = process.env.WEBHOOK_URL; // e.g., https://your-app.onrender.com
-
+const port = process.env.PORT;
 // CRITICAL: We add webhookUrl to the check, as it's now required
 if (!telegramBotToken || !mongoURI || !geminiApiKey  || !webhookUrl) {
     console.error('FATAL ERROR: One or more required environment variables are missing (TELEGRAM_BOT_TOKEN, MONGO_URI, GEMINI_API_KEY, DEEPAI_API_KEY, WEBHOOK_URL).');
@@ -416,7 +416,7 @@ app.get('/', (req, res) => {
     res.status(200).send('Bot server is alive and configured for webhooks.');
 });
 // =================================================================
-app.listen(PORT, () => {
-    console.log(`✅ Server is running and listening for requests on port ${PORT}`);
+app.listen(port, () => {
+    console.log(`✅ Server is running and listening for requests on port ${port}`);
 });
 module.exports = app;
