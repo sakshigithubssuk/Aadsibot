@@ -15,9 +15,9 @@ const userSchema = new mongoose.Schema({
   telegramId: {
     type: String,
     default: null,
+    sparse: true,
     unique: true,
-    sparse: true, 
-  },
+       },
 
   // 2. The user's on/off switch for the AI assistant.
   isAiBotActive: {
