@@ -13,7 +13,11 @@ const chrono = require('chrono-node');
 const { nanoid } = require('nanoid');
 const FormData = require('form-data');
 const dateFnsTz = require('date-fns-tz');
-const { zonedTimeToUtc, format } = dateFnsTz; // Correctly destructure both functions
+const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 // --- Part 2: Initialize the Express App ---
 const app = express();
@@ -330,14 +334,7 @@ bot.onText(/\/forget (\w+)/, withUser(async (msg, match, user) => {
     await bot.sendMessage(msg.chat.id, `✅ Okay, I've forgotten about **${tagToForget}**.`, { parse_mode: 'Markdown' });
 }));
 
-// --- NEW IMPORTS ---
-const chrono = require('chrono-node');
-const { nanoid } = require('nanoid');
-const dayjs = require('dayjs');
-const utc = require('dayjs/plugin/utc');
-const timezone = require('dayjs/plugin/timezone');
-dayjs.extend(utc);
-dayjs.extend(timezone);
+
 
 bot.onText(/\/remind me to (.+)/s, withUser(async (msg, match, user) => {
     const chatId = msg.chat.id;
