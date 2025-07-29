@@ -58,18 +58,11 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const userRoutes = require('./routes/userRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 
-// --- Part 7: Setup API and Static File Routes ---
-// Use a temporary directory for file operations, which is crucial for serverless environments
-const tempDir = path.join(require('os').tmpdir(), 'bot_downloads');
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir, { recursive: true });
+const uploadsDir = path.join(__dirname, 'public/uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
 }
-// This is for serving user-uploaded profile pictures, not temporary downloads
-const uploadPath = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadPath)) {
-  fs.mkdirSync(uploadPath, { recursive: true });
-}
-app.use('/uploads', express.static(uploadPath));
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // API Routes
 app.use('/api/auth', authRoutes);
