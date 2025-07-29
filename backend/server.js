@@ -63,7 +63,10 @@ if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
-
+const tempDownloadsDir = path.join(os.tmpdir(), 'bot-downloads');
+if (!fs.existsSync(tempDownloadsDir)) {
+  fs.mkdirSync(tempDownloadsDir, { recursive: true });
+}
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/feedback', feedbackRoutes);
