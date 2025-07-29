@@ -330,15 +330,17 @@ bot.onText(/\/forget (\w+)/, withUser(async (msg, match, user) => {
     await bot.sendMessage(msg.chat.id, `✅ Okay, I've forgotten about **${tagToForget}**.`, { parse_mode: 'Markdown' });
 }));
 
-// Replace your existing /remind me to handler with this
-// =================================================================
-// FINAL CORRECTED REMINDER HANDLERS
-// =================================================================
+// --- FIX: Changed import statements to require for CommonJS compatibility ---
+const chrono = require('chrono-node');
+const { zonedTimeToUtc, format } = require('date-fns-tz');
+const { nanoid } = require('nanoid');
 
-// Assuming you have your 'withUser' middleware and 'Reminder' model correctly set up.
+// Your 'withUser' middleware and 'Reminder' model are assumed to be set up correctly.
 
 bot.onText(/\/remind me to (.+)/s, withUser(async (msg, match, user) => {
     const chatId = msg.chat.id;
+    // Handle cases where match might be null (though regex should prevent this)
+    if (!match || !match[1]) return; 
     const fullReminderText = match[1];
     const userTimezone = user.timezone || 'UTC';
 
@@ -361,6 +363,7 @@ bot.onText(/\/remind me to (.+)/s, withUser(async (msg, match, user) => {
             return bot.sendMessage(msg.chat.id, "Please provide a message for your reminder. For example: `/remind me to call mom at 8pm`");
         }
 
+        // This line should now work correctly
         const remindAtUtc = zonedTimeToUtc(localParsedDate, userTimezone);
 
         // Check if the reminder is for a time in the past.
@@ -394,7 +397,6 @@ bot.onText(/\/remind me to (.+)/s, withUser(async (msg, match, user) => {
         bot.sendMessage(chatId, "I'm sorry, I ran into an error while setting your reminder. Please double-check your formatting and try again.");
     }
 }));
-
 // Replace your existing /myreminders handler with this
 bot.onText(/\/myreminders/, withUser(async (msg, match, user) => {
     const reminders = await Reminder.find({ user: user._id, isSent: false }).sort({ remindAt: 1 });
