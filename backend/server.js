@@ -329,29 +329,26 @@ bot.onText(/\/forget (\w+)/, withUser(async (msg, match, user) => {
     await user.save();
     await bot.sendMessage(msg.chat.id, `✅ Okay, I've forgotten about **${tagToForget}**.`, { parse_mode: 'Markdown' });
 }));
-
-// --- FIX: Changed import statements to require for CommonJS compatibility ---
-
-// Your 'withUser' middleware and 'Reminder' model are assumed to be set up correctly.
-
 bot.onText(/\/remind me to (.+)/s, withUser(async (msg, match, user) => {
     const chatId = msg.chat.id;
-    // Handle cases where match might be null (though regex should prevent this)
-    if (!match || !match[1]) return; 
+    if (!match || !match[1]) return;
     const fullReminderText = match[1];
-    const userTimezone = user.timezone || 'UTC';
 
     try {
-        // Use chrono-node to parse the entire reminder text.
+        // Use chrono-node to parse the reminder text. It calculates the future date for us.
         const parsedResults = chrono.parse(fullReminderText, new Date(), { forwardDate: true });
 
-        // Check if chrono-node understood the time reference.
         if (!parsedResults || parsedResults.length === 0) {
             return bot.sendMessage(chatId, "I'm sorry, I couldn't figure out the time for the reminder. Please try again using a more specific time, like '...in 10 minutes' or '...tomorrow at 7pm'.");
         }
 
         const parsedResult = parsedResults[0];
-        const localParsedDate = parsedResult.start.date();
+        
+        // --- NEW LOGIC ---
+        // 'parsedResult.start.date()' gives us the exact future moment.
+        // For example, if it's 4:20 PM and the user says "in 10 min", this will be a Date object for 4:30 PM.
+        // We don't need any timezone conversions.
+        const reminderTime = parsedResult.start.date();
 
         // Extract the reminder message by removing the part that chrono identified as the time.
         const reminderMessage = fullReminderText.replace(parsedResult.text, '').trim();
@@ -360,11 +357,8 @@ bot.onText(/\/remind me to (.+)/s, withUser(async (msg, match, user) => {
             return bot.sendMessage(msg.chat.id, "Please provide a message for your reminder. For example: `/remind me to call mom at 8pm`");
         }
 
-        // This line should now work correctly
-        const remindAtUtc = zonedTimeToUtc(localParsedDate, userTimezone);
-
-        // Check if the reminder is for a time in the past.
-        if (remindAtUtc < new Date()) {
+        // Check if the reminder is for a time in the past (chrono might misunderstand "5pm" as past).
+        if (reminderTime < new Date()) {
             return bot.sendMessage(chatId, "It seems the time you provided is in the past. Please try again with a future time.");
         }
 
@@ -380,16 +374,22 @@ bot.onText(/\/remind me to (.+)/s, withUser(async (msg, match, user) => {
             user: user._id,
             chatId: msg.chat.id.toString(),
             message: reminderMessage,
-            remindAt: remindAtUtc,
+            // We store the calculated future Date object directly.
+            remindAt: reminderTime,
             shortId: shortId
         });
 
-        // Confirm the reminder with the user in their local timezone.
-        const confirmationTime = format(remindAtUtc, "MMM d, yyyy, h:mm a (zzzz)", { timeZone: userTimezone });
+        // --- NEW CONFIRMATION MESSAGE ---
+        // We use the built-in JavaScript toLocaleString() to format the date in a readable way.
+        const confirmationTime = reminderTime.toLocaleString('en-US', {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+        });
         
-        await bot.sendMessage(msg.chat.id, `✅ Got it! I will remind you to "${reminderMessage}" at ${confirmationTime}.`);
+        await bot.sendMessage(msg.chat.id, `✅ Got it! I will remind you to "${reminderMessage}" on ${confirmationTime}.`);
 
     } catch (error) {
+        // This catch block is still useful for other potential errors.
         console.error('[REMINDER PARSING ERROR]', error);
         bot.sendMessage(chatId, "I'm sorry, I ran into an error while setting your reminder. Please double-check your formatting and try again.");
     }
