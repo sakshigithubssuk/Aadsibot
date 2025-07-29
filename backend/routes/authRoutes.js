@@ -2,24 +2,28 @@
 
 const express = require('express');
 const router = express.Router();
+
+// --- Middleware ---
 const protect = require('../middleware/authmiddleware'); 
 
-// Import the multer upload configuration middleware
-const upload = require('../middleware/uploadMiddleware');
-
 // --- Controllers ---
-// Import controllers responsible for handling the request logic
-const { registerUser, loginUser, getProfile } = require('../controllers/authController');
 const { 
-  uploadProfilePicture, 
-  removeProfilePicture, 
-  toggleAiBot 
-} = require('../controllers/userController');
+  registerUser, 
+  loginUser, 
+  getProfile 
+} = require('../controllers/authController');
 
+// --- DEFINE AUTHENTICATION ROUTES ---
+
+// Handles user registration
 router.post('/register', registerUser);
+
+// Handles user login
 router.post('/login', loginUser);
+
+// Gets the profile of the currently logged-in user
 router.get('/profile', protect, getProfile);
-router.post('/upload-profile', protect, upload.single('profileImage'), uploadProfilePicture);
-router.delete('/remove-profile', protect, removeProfilePicture);
-router.patch('/toggle-bot', protect, toggleAiBot);
+
+// All file upload logic has been moved to userRoutes.js where it belongs.
+
 module.exports = router;
