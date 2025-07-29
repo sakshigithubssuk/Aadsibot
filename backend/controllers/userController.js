@@ -31,60 +31,39 @@ exports.toggleAiBot = async (req, res) => {
 };
 
 exports.uploadProfilePicture = async (req, res) => {
-  console.log("inside uploadprofile picture");
   try {
-    // req.file is populated by multer middleware
-    console.log("inside try block");
     if (!req.file) {
-      console.log("no file exist");
-      return res.status(400).json({ message: 'No file uploaded. Please select an image.' });
+      return res.status(400).json({ message: 'No file uploaded.' });
     }
 
     const user = await User.findById(req.user._id);
     if (!user) {
-      console.log("user not found");
       return res.status(404).json({ message: 'User not found.' });
     }
 
-    // --- Delete old picture if it exists ---
+    // If user already has a picture, delete the old one from the server
     if (user.profilePicture) {
-      // Construct the full path to the old file
-      // process.cwd() gives the root directory of the project
-      console.log("profile found")
       const oldPath = path.join(process.cwd(), 'public', user.profilePicture);
-      
-      // Check if file exists and delete it
       if (fs.existsSync(oldPath)) {
         fs.unlinkSync(oldPath);
       }
     }
-    const relativePath = req.file.path.replace('public', '');
+
+    const newProfilePicturePath = `/uploads/profiles/${req.file.filename}`;
     
-    // On Windows, paths use backslashes. Convert them to forward slashes for URL compatibility.
-    user.profilePicture = relativePath.replace(/\\/g, '/');
-    
+    user.profilePicture = newProfilePicturePath;
     await user.save();
 
-    // Respond with the updated user object, as the frontend expects
+    // Respond with the updated user object so the frontend can update its state
     res.status(200).json({
       message: 'Profile picture uploaded successfully.',
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        credits: user.credits,
-        telegramId: user.telegramId,
-        isAiBotActive: user.isAiBotActive,
-        profilePicture: user.profilePicture,
-      }
+      user: { ...user.toObject(), profilePicture: user.profilePicture }
     });
 
   } catch (error) {
     handleError(res, error, 'Error uploading profile picture:');
   }
 };
-
-
 
 exports.removeProfilePicture = async (req, res) => {
     try {
@@ -93,33 +72,21 @@ exports.removeProfilePicture = async (req, res) => {
             return res.status(404).json({ message: 'User not found.' });
         }
 
-        // If there's no picture to remove, just confirm success
-        if (!user.profilePicture) {
-            return res.status(200).json({ message: 'No profile picture to remove.', user });
+        if (user.profilePicture) {
+            const filePath = path.join(process.cwd(), 'public', user.profilePicture);
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+
+            user.profilePicture = null;
+            await user.save(); // The 'user' variable is now updated with profilePicture: null
         }
 
-        // --- Delete the file from the filesystem ---
-        const filePath = path.join(process.cwd(), 'public', user.profilePicture);
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-        }
-
-        // --- Remove the path from the database ---
-        user.profilePicture = null;
-        await user.save();
-
-        // Respond with the updated user object
+        // --- THIS IS THE FIX ---
+        // Send the updated user document directly.
         res.status(200).json({
             message: 'Profile picture removed successfully.',
-            user: {
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                credits: user.credits,
-                telegramId: user.telegramId,
-                isAiBotActive: user.isAiBotActive,
-                profilePicture: user.profilePicture,
-            }
+            user: user
         });
 
     } catch (error) {
