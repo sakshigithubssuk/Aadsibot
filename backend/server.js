@@ -331,9 +331,6 @@ bot.onText(/\/forget (\w+)/, withUser(async (msg, match, user) => {
 }));
 
 // --- FIX: Changed import statements to require for CommonJS compatibility ---
-const chrono = require('chrono-node');
-const { zonedTimeToUtc, format } = require('date-fns-tz');
-const { nanoid } = require('nanoid');
 
 // Your 'withUser' middleware and 'Reminder' model are assumed to be set up correctly.
 
