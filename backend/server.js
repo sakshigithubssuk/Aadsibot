@@ -335,9 +335,6 @@ bot.onText(/\/forget (\w+)/, withUser(async (msg, match, user) => {
 // FINAL CORRECTED REMINDER HANDLERS
 // =================================================================
 
-import * as chrono from 'chrono-node';
-import { zonedTimeToUtc, format } from 'date-fns-tz';
-import { nanoid } from 'nanoid';
 // Assuming you have your 'withUser' middleware and 'Reminder' model correctly set up.
 
 bot.onText(/\/remind me to (.+)/s, withUser(async (msg, match, user) => {
