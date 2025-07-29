@@ -22,7 +22,7 @@ const Profile = () => {
     if (token) {
       try {
         // Kept your production URL
-        const res = await axios.get('https://aadsibot.onrender.com/api/auth/profile', {
+        const res = await axios.get('https://aadsibot.onrender.com/api/user/profile', {
           headers: { Authorization: `Bearer ${token}` }
         });
         updateUser(res.data);
