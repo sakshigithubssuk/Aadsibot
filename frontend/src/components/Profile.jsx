@@ -17,16 +17,17 @@ const Profile = () => {
   
   const fileInputRef = useRef(null);
 
+  // This function fetches the latest user data to ensure UI is in sync.
   const fetchLatestProfile = useCallback(async () => {
     if (token) {
       try {
+        // Kept your production URL
         const res = await axios.get('https://aadsibot.onrender.com/api/auth/profile', {
           headers: { Authorization: `Bearer ${token}` }
         });
         updateUser(res.data);
       } catch (err) {
         console.error("Failed to fetch latest profile", err);
-        // If token is invalid, log out the user
         if (err.response && (err.response.status === 401 || err.response.status === 403)) {
           logout();
           navigate('/login');
@@ -35,13 +36,14 @@ const Profile = () => {
     }
   }, [token, navigate, logout, updateUser]);
 
+  // This effect ensures the profile is fresh when the component loads.
   useEffect(() => {
-    // Fetch profile only once on component mount if user data is not fully loaded
-    if (user && !user.hasOwnProperty('isAiBotActive')) { // A more robust check
+    if (user && !user.hasOwnProperty('isAiBotActive')) {
         fetchLatestProfile();
     }
   }, [fetchLatestProfile, user]);
 
+  // --- UPDATED: Logic to handle file upload ---
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -62,8 +64,9 @@ const Profile = () => {
       const formData = new FormData();
       formData.append('profileImage', file);
 
+      // --- THE FIX: Using the correct user route, not the auth route ---
       const res = await axios.post(
-        'https://aadsibot.onrender.com/api/auth/upload-profile',
+        'https://aadsibot.onrender.com/api/user/upload-profile',
         formData,
         {
           headers: {
@@ -73,7 +76,7 @@ const Profile = () => {
         }
       );
 
-      updateUser(res.data.user); // Update context with new user data from backend
+      updateUser(res.data.user);
       setStatus({ loading: false, error: null, action: null });
     } catch (err) {
       console.error("Upload failed", err);
@@ -82,6 +85,7 @@ const Profile = () => {
     }
   };
   
+  // --- UPDATED: Logic to handle file removal ---
   const handleRemovePicture = async () => {
     if (!window.confirm('Are you sure you want to remove your profile picture?')) {
         return;
@@ -90,14 +94,15 @@ const Profile = () => {
     setStatus({ loading: true, error: null, action: 'remove' });
 
     try {
+        // --- THE FIX: Using the correct user route, not the auth route ---
         const res = await axios.delete(
-            'https://aadsibot.onrender.com/api/auth/remove-profile', 
+            'https://aadsibot.onrender.com/api/user/remove-profile', 
             {
                 headers: { Authorization: `Bearer ${token}` }
             }
         );
 
-        updateUser(res.data.user); // Update context with user data (with cleared picture)
+        updateUser(res.data.user);
         setStatus({ loading: false, error: null, action: null });
 
     } catch (err) {
@@ -107,29 +112,36 @@ const Profile = () => {
     }
   };
 
-
+  // Click handler for the profile picture
   const handleImageClick = () => {
+    // A small improvement to prevent clicking while loading
     if (status.loading) return;
     fileInputRef.current.click();
   };
 
+  // Logout handler
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  // Render a loading state if user data isn't ready
   if (!user) {
     return <p className="profile-loading">Loading Profile...</p>;
   }
   
   const isLoading = status.loading;
 
+  // --- JSX with all logic integrated ---
   return (
     <div className="profile-page-container">
       <div className="profile-card">
         <div className="profile-picture-container" onClick={handleImageClick}>
           {user.profilePicture ? (
             <img
+              // key prop forces a re-render on change, avoiding cache issues
+              key={user.profilePicture}
+              // This correctly constructs the full image URL for your production server
               src={`https://aadsibot.onrender.com${user.profilePicture}`}
               alt="Profile"
               className="profile-picture"
@@ -138,7 +150,8 @@ const Profile = () => {
             <div className="profile-picture-placeholder">{user.name.charAt(0).toUpperCase()}</div>
           )}
           <div className="profile-picture-overlay">
-            {isLoading && status.action === 'upload' ? 'Uploading...' : 'Uploading...'}
+            {/* Using the more user-friendly text from your local version */}
+            {isLoading && status.action === 'upload' ? 'Uploading...' : 'Change Photo'}
           </div>
         </div>
         
@@ -164,7 +177,7 @@ const Profile = () => {
         <h1 className="profile-title">{user.name}</h1>
         <p className="profile-email">{user.email}</p>
         
-        {/* UPDATED: The grid now only contains two items */}
+        {/* The info grid remains the same and will work correctly now */}
         <div className="profile-info-grid">
           <div className="info-item">
             <span className="info-label">Telegram Link Status</span>
