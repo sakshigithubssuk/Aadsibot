@@ -85,6 +85,7 @@ const getProfile = async (req, res) => {
  }
 
 
+
 exports.updateProfilePictureUrl = async (req, res) => {
   const { imageUrl } = req.body;
 
