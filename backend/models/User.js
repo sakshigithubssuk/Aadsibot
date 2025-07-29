@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema({
   // 2. The user's on/off switch for the AI assistant.
   isAiBotActive: {
     type: Boolean,
-    default: true,
+    default: false,
   },
 
   // 3. NEW: To store user-specific information for the /remember command.
