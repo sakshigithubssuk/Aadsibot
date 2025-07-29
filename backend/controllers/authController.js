@@ -1,41 +1,33 @@
+// In backend/controllers/authController.js
+
 const User = require('../models/User.js');
 const jwt = require('jsonwebtoken');
 
-// Generate JWT
+// Generate JWT (This function is fine)
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: '7d',
   });
 };
 
-// @desc Register user
-// @route POST /api/auth/register
+// --- CORRECTED registerUser FUNCTION ---
 const registerUser = async (req, res) => {
   const { name, email, password, whatsappNumber } = req.body;
+  // ... your validation logic ...
 
-  if (!name || !email || !password || !whatsappNumber) {
-    return res.status(400).json({ message: 'Please provide all fields' });
-  }
-
-  const userExists = await User.findOne({ email });
-  if (userExists) {
-    return res.status(400).json({ message: 'User already exists' });
-  }
-
-  const user = await User.create({
-    name,
-    email,
-    password,
-    whatsappNumber,
-  });
+  const user = await User.create({ name, email, password, whatsappNumber });
 
   if (user) {
+    // We send ALL the data the frontend needs to start a session correctly.
     res.status(201).json({
       _id: user._id,
       name: user.name,
       email: user.email,
       whatsappNumber: user.whatsappNumber,
       credits: user.credits,
+      profilePicture: user.profilePicture,
+      telegramId: user.telegramId,         // ADD THIS
+      isAiBotActive: user.isAiBotActive,     // ADD THIS
       token: generateToken(user._id),
     });
   } else {
@@ -43,20 +35,23 @@ const registerUser = async (req, res) => {
   }
 };
 
-// @desc Login user
-// @route POST /api/auth/login
+// --- CORRECTED loginUser FUNCTION ---
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
-
   const user = await User.findOne({ email });
 
   if (user && (await user.matchPassword(password))) {
+    // --- THIS IS THE FIX ---
+    // The "Day Pass" now includes the "Telegram Stamp" and "Bot Status".
     res.status(200).json({
       _id: user._id,
       name: user.name,
       email: user.email,
       whatsappNumber: user.whatsappNumber,
       credits: user.credits,
+      profilePicture: user.profilePicture,
+      telegramId: user.telegramId,         // ADD THIS
+      isAiBotActive: user.isAiBotActive,     // ADD THIS
       token: generateToken(user._id),
     });
   } else {
@@ -64,49 +59,18 @@ const loginUser = async (req, res) => {
   }
 };
 
-// @desc Get current user profile
-// @route GET /api/auth/profile
+// getProfile is fine, no changes needed
 const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
     res.json(user);
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 };
- module.exports={
-  getProfile,
+
+module.exports = {
   registerUser,
-  loginUser
- }
-
-
-
-exports.updateProfilePictureUrl = async (req, res) => {
-  const { imageUrl } = req.body;
-
-  if (!imageUrl) {
-    return res.status(400).json({ message: 'No image URL was provided.' });
-  }
-
-  try {
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      { profilePicture: imageUrl },
-      { new: true }
-    ).select('-password');
-    
-    res.json({
-      message: 'Profile picture updated successfully',
-      user,
-    });
-
-  } catch (error) {
-    console.error("Error saving image URL to database:", error);
-    res.status(500).json({ message: 'Server error while updating profile picture.' });
-  }
+  loginUser,
+  getProfile,
 };
