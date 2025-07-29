@@ -331,55 +331,51 @@ bot.onText(/\/forget (\w+)/, withUser(async (msg, match, user) => {
 }));
 
 bot.onText(/\/settimezone (.+)/, withUser(async (msg, match, user) => {
-    const newTimezone = match[1];
+    // Clean up the input to remove extra spaces or accidental quotes
+    const newTimezone = match[1].trim().replace(/['"`]/g, ''); 
     try {
-        // Basic validation to see if it's a real timezone
         new Intl.DateTimeFormat(undefined, { timeZone: newTimezone });
-        
         user.timezone = newTimezone;
         await user.save();
-        
         bot.sendMessage(msg.chat.id, `✅ Your timezone has been set to ${newTimezone}.`);
     } catch (e) {
-        bot.sendMessage(msg.chat.id, `🤔 That doesn't seem to be a valid timezone. Please use a format like 'America/New_York' or 'Asia/Kolkata'.`);
+        bot.sendMessage(msg.chat.id, `🤔 '${newTimezone}' doesn't seem to be a valid timezone. Please use a format like 'America/New_York' or 'Asia/Kolkata'.`);
     }
 }));
+
 bot.onText(/\/remind me to (.+)/s, withUser(async (msg, match, user) => {
     const chatId = msg.chat.id;
     if (!match || !match[1]) return;
     const fullReminderText = match[1];
 
-    // --- FIX: Get the user's timezone. Default to UTC if not set. ---
     const userTimezone = user.timezone || 'UTC';
-    if (userTimezone === 'UTC') {
-        bot.sendMessage(chatId, "Heads up: You haven't set a timezone (`/settimezone <zone>`), so I'm using UTC.");
+    if (userTimezone === 'UTC' && !user.notifiedAboutTimezone) {
+        bot.sendMessage(chatId, "Heads up: You haven't set a timezone yet! Reminders will use UTC time. Use `/settimezone Your/Timezone` to get accurate reminders.");
+        user.notifiedAboutTimezone = true; // Prevents spamming this message
+        await user.save();
     }
 
     try {
         const parsedResults = chrono.parse(fullReminderText, new Date(), { forwardDate: true });
 
         if (!parsedResults || parsedResults.length === 0) {
-            return bot.sendMessage(chatId, "I'm sorry, I couldn't figure out the time for the reminder. Please try again.");
+            return bot.sendMessage(chatId, "I'm sorry, I couldn't figure out the time for the reminder. Please try being more specific, like '...in 10 minutes' or '...tomorrow at 7pm'.");
         }
 
         const parsedResult = parsedResults[0];
-        // This is a date object representing the user's local time, but the server thinks it's UTC.
         const localParsedDate = parsedResult.start.date();
 
-        // --- THE CRITICAL FIX ---
-        // Convert the local time into the correct, universal UTC timestamp for storage.
-        // It takes the user's intended time and their timezone, and calculates the true UTC moment.
+        // THIS IS THE LINE THAT WAS CRASHING. It will now work because of the correct require statement.
         const remindAtUtc = zonedTimeToUtc(localParsedDate, userTimezone);
         
-        // Extract the reminder message
         const reminderMessage = fullReminderText.replace(parsedResult.text, '').trim();
 
         if (!reminderMessage) {
-            return bot.sendMessage(msg.chat.id, "Please provide a message for your reminder!");
+            return bot.sendMessage(msg.chat.id, "Please provide a message for the reminder! Example: `/remind me to call mom at 8pm`");
         }
 
         if (remindAtUtc < new Date()) {
-            return bot.sendMessage(chatId, "It seems the time you provided is in the past. Please try again.");
+            return bot.sendMessage(chatId, "The time you provided seems to be in the past. Please try again with a future time.");
         }
 
         let shortId;
@@ -392,20 +388,19 @@ bot.onText(/\/remind me to (.+)/s, withUser(async (msg, match, user) => {
             user: user._id,
             chatId: msg.chat.id.toString(),
             message: reminderMessage,
-            // Store the correctly converted UTC time
             remindAt: remindAtUtc,
-            shortId: shortId
+            shortId: shortId,
+            isSent: false // Make sure your model has this!
         });
 
-        // --- FIX: Format the confirmation message using the user's timezone ---
-        // This shows the user the time in their own zone, confirming you understood correctly.
+        // Format the confirmation message using the user's timezone to show you understood correctly.
         const confirmationTime = format(remindAtUtc, "MMM d, yyyy, h:mm a (zzzz)", { timeZone: userTimezone });
         
-        await bot.sendMessage(msg.chat.id, `✅ Got it! I will remind you to "${reminderMessage}" on ${confirmationTime}.`);
+        await bot.sendMessage(msg.chat.id, `✅ Okay, I will remind you to "${reminderMessage}" on ${confirmationTime}.`);
 
     } catch (error) {
         console.error('[REMINDER PARSING ERROR]', error);
-        bot.sendMessage(chatId, "I'm sorry, I ran into an error while setting your reminder.");
+        bot.sendMessage(chatId, "Sorry, I encountered an error while setting your reminder. Please check your formatting and try again.");
     }
 }));
 bot.onText(/\/myreminders/, withUser(async (msg, match, user) => {
