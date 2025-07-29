@@ -2,7 +2,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const express = require('express');
-const cors = require('cors'); // Make sure you have run 'npm install cors'
+const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
@@ -12,16 +12,15 @@ const chrono = require('chrono-node');
 const { nanoid } = require('nanoid');
 const FormData = require('form-data');
 const dateFnsTz = require('date-fns-tz');
-const zonedTimeToUtc = dateFnsTz.zonedTimeToUtc;
-const format = dateFnsTz.format;
-// --- Part 2: Initialize the Express App ---
-// We must create the 'app' variable BEFORE we can use it with app.use()
-const app = express();
-app.use(express.json()); // Middleware to parse JSON bodies
+const { zonedTimeToUtc, format } = dateFnsTz; // Correctly destructure both functions
 
-// CORS Middleware to allow your frontend to connect
+// --- Part 2: Initialize the Express App ---
+const app = express();
+app.use(express.json());
+
+// CORS Middleware
 app.use(cors({
-  origin: 'https://aadsibot.vercel.app', // Your React app's URL
+  origin: 'https://aadsibot.vercel.app',
   credentials: true,
 }));
 
@@ -33,25 +32,26 @@ const stabilityApiKey = process.env.STABILITY_API_KEY;
 const tenorApiKey = process.env.TENOR_API_KEY;
 const deepaiApiKey = process.env.DEEPAI_API_KEY;
 const webhookUrl = process.env.WEBHOOK_URL;
-const port = process.env.PORT || 5050; // Use PORT from env, or default to 5050
+const port = process.env.PORT || 5050;
 
 if (!telegramBotToken || !mongoURI || !geminiApiKey || !webhookUrl) {
     console.error('FATAL ERROR: A required environment variable is missing.');
-    throw new Error('FATAL ERROR: Missing required environment variables.');
+    process.exit(1); // Exit the process on fatal error
 }
 
 // --- Part 5: Database Connection ---
 mongoose.connect(mongoURI)
     .then(() => console.log('✅ MongoDB connection successful.'))
-    .catch(err => console.error('❌ MongoDB connection error:', err));
+    .catch(err => {
+        console.error('❌ MongoDB connection error:', err);
+        process.exit(1); // Exit if DB connection fails
+    });
 
 // --- Part 6: Import Database Models and API Routes ---
-// These should come after the DB connection is initiated
 const User = require('./models/User');
 const Activity = require('./models/Activity');
 const Reminder = require('./models/Reminder');
 
-// Assuming your route files exist
 const authRoutes = require('./routes/authRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
@@ -59,7 +59,12 @@ const userRoutes = require('./routes/userRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 
 // --- Part 7: Setup API and Static File Routes ---
-// Serve static files (like profile pictures)
+// Use a temporary directory for file operations, which is crucial for serverless environments
+const tempDir = path.join(require('os').tmpdir(), 'bot_downloads');
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir, { recursive: true });
+}
+// This is for serving user-uploaded profile pictures, not temporary downloads
 const uploadPath = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadPath)) {
   fs.mkdirSync(uploadPath, { recursive: true });
@@ -72,7 +77,6 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/activity', activityRoutes);
-
 // --- Part 8: Telegram Bot Setup & Logic ---
 const bot = new TelegramBot(telegramBotToken, { polling: false });
 
