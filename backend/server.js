@@ -335,42 +335,50 @@ bot.onText(/\/forget (\w+)/, withUser(async (msg, match, user) => {
 // FINAL CORRECTED REMINDER HANDLERS
 // =================================================================
 
+import * as chrono from 'chrono-node';
+import { zonedTimeToUtc, format } from 'date-fns-tz';
+import { nanoid } from 'nanoid';
+// Assuming you have your 'withUser' middleware and 'Reminder' model correctly set up.
+
 bot.onText(/\/remind me to (.+)/s, withUser(async (msg, match, user) => {
     const chatId = msg.chat.id;
     const fullReminderText = match[1];
+    const userTimezone = user.timezone || 'UTC';
 
     try {
-        const userTimezone = user.timezone || 'UTC'; 
-        
-        // chrono-node is powerful and will parse "after 10 minutes" and "at 6:10pm"
+        // Use chrono-node to parse the entire reminder text.
         const parsedResults = chrono.parse(fullReminderText, new Date(), { forwardDate: true });
 
+        // Check if chrono-node understood the time reference.
         if (!parsedResults || parsedResults.length === 0) {
-            return bot.sendMessage(chatId, "🤔 I couldn't understand the time. Please try being more specific, like `...in 10 minutes` or `...tomorrow at 7pm`.");
+            return bot.sendMessage(chatId, "I'm sorry, I couldn't figure out the time for the reminder. Please try again using a more specific time, like '...in 10 minutes' or '...tomorrow at 7pm'.");
         }
 
         const parsedResult = parsedResults[0];
         const localParsedDate = parsedResult.start.date();
-        
-        // Extract the reminder message by removing the time part that chrono identified
+
+        // Extract the reminder message by removing the part that chrono identified as the time.
         const reminderMessage = fullReminderText.replace(parsedResult.text, '').trim();
 
         if (!reminderMessage) {
-            return bot.sendMessage(msg.chat.id, "Please provide a message for the reminder! Example: `/remind me to call mom at 8pm`");
+            return bot.sendMessage(msg.chat.id, "Please provide a message for your reminder. For example: `/remind me to call mom at 8pm`");
         }
 
         const remindAtUtc = zonedTimeToUtc(localParsedDate, userTimezone);
-        
+
+        // Check if the reminder is for a time in the past.
         if (remindAtUtc < new Date()) {
-            return bot.sendMessage(chatId, `The time you provided seems to be in the past. Please try again with a future time.`);
+            return bot.sendMessage(chatId, "It seems the time you provided is in the past. Please try again with a future time.");
         }
 
+        // Generate a unique ID for the reminder.
         let shortId;
         while (true) {
             shortId = nanoid(6);
             if (!await Reminder.findOne({ shortId })) break;
         }
 
+        // Save the reminder to your database.
         await Reminder.create({
             user: user._id,
             chatId: msg.chat.id.toString(),
@@ -379,14 +387,14 @@ bot.onText(/\/remind me to (.+)/s, withUser(async (msg, match, user) => {
             shortId: shortId
         });
 
+        // Confirm the reminder with the user in their local timezone.
         const confirmationTime = format(remindAtUtc, "MMM d, yyyy, h:mm a (zzzz)", { timeZone: userTimezone });
         
-        await bot.sendMessage(msg.chat.id, `✅ Okay, I will remind you to "${reminderMessage}" at ${confirmationTime}.`);
+        await bot.sendMessage(msg.chat.id, `✅ Got it! I will remind you to "${reminderMessage}" at ${confirmationTime}.`);
 
     } catch (error) {
-        // This new catch block will give you a much more specific error message.
         console.error('[REMINDER PARSING ERROR]', error);
-        bot.sendMessage(chatId, "Sorry, I encountered an error while setting your reminder. Please check your formatting and try again.");
+        bot.sendMessage(chatId, "I'm sorry, I ran into an error while setting your reminder. Please double-check your formatting and try again.");
     }
 }));
 
