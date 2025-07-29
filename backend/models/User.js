@@ -5,19 +5,18 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  whatsappNumber: { type: String},
+  whatsappNumber: { type: String },
   credits: { type: Number, default: 10 }, // Free credits
   profilePicture: { 
     type: String, 
     default: '' // Default to an empty string
   },
-  // 1. To store the link between your user and their Telegram account.
+  // 1. Correctly defined telegramId field
   telegramId: {
     type: String,
     default: null,
-    sparse: true,
-    unique: true,
-       },
+    // REMOVED unique and sparse from here
+  },
 
   // 2. The user's on/off switch for the AI assistant.
   isAiBotActive: {
@@ -31,12 +30,20 @@ const userSchema = new mongoose.Schema({
       tag: { type: String, required: true, lowercase: true },
       content: { type: String, required: true }
     }],
-    default: [] // IMPORTANT: Default to an empty array.
+    default: []
   }
 
 }, { timestamps: true });
 
+// ** NEW: Define the partial index on the schema **
+// This index will enforce uniqueness on the telegramId field,
+// but ONLY for documents where telegramId is not null.
+userSchema.index(
+  { telegramId: 1 }, 
+  { unique: true, partialFilterExpression: { telegramId: { $ne: null } } }
+);
 
+// Hash password before saving
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 10);
